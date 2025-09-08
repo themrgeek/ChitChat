@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Anonymous P2P Chat</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Auth Screen -->
+      <div id="auth-screen" class="screen active">
+        <h1>Anonymous P2P Chat</h1>
+        <div class="auth-options">
+          <button id="new-user-btn" class="btn-primary">New User</button>
+          <button id="existing-user-btn" class="btn-secondary">
+            Existing User
+          </button>
+        </div>
+
+        <!-- New User Form -->
+        <div id="new-user-form" class="form hidden">
+          <h2>Register with Identity Verification</h2>
+          <input
+            type="text"
+            id="national-id"
+            placeholder="National ID"
+            required
+          />
+          <input type="email" id="email" placeholder="Email Address" required />
+          <button id="register-btn" class="btn-primary">Register</button>
+        </div>
+
+        <!-- Existing User Form -->
+        <div id="existing-user-form" class="form hidden">
+          <h2>Login with Your Credentials</h2>
+          <input
+            type="text"
+            id="login-national-id"
+            placeholder="National ID"
+            required
+          />
+          <input
+            type="email"
+            id="login-email"
+            placeholder="Email Address"
+            required
+          />
+          <button id="login-btn" class="btn-primary">Login</button>
+        </div>
+
+        <!-- Credentials Display -->
+        <div id="credentials-display" class="hidden">
+          <h3>Your Anonymous Credentials</h3>
+          <div class="credentials">
+            <p>Anonymous ID: <span id="anonymous-id"></span></p>
+            <p>Private Key: <span id="private-key"></span></p>
+          </div>
+          <div class="avatar-selection">
+            <h3>Select Your Avatar</h3>
+            <div class="avatars">
+              <span class="avatar" data-avatar="👤">👤</span>
+              <span class="avatar" data-avatar="🦊">🦊</span>
+              <span class="avatar" data-avatar="🐢">🐢</span>
+              <span class="avatar" data-avatar="🦉">🦉</span>
+              <span class="avatar" data-avatar="🐬">🐬</span>
+            </div>
+          </div>
+          <button id="enter-chat-btn" class="btn-primary hidden">
+            Enter Chat
+          </button>
+        </div>
+      </div>
+
+      <!-- Chat Screen -->
+      <div id="chat-screen" class="screen">
+        <header>
+          <h2>Anonymous Chat</h2>
+          <div class="user-info">
+            <span id="user-avatar"></span>
+            <span id="user-id"></span>
+          </div>
+        </header>
+
+        <div class="chat-container">
+          <div id="messages" class="messages"></div>
+
+          <div class="input-area">
+            <input
+              type="text"
+              id="message-input"
+              placeholder="Type your message..."
+            />
+            <button id="send-btn">Send</button>
+          </div>
+        </div>
+
+        <div class="sidebar">
+          <h3>Online Users</h3>
+          <div id="online-users"></div>
+
+          <div class="room-section">
+            <h3>Chat Rooms</h3>
+            <input type="text" id="room-name" placeholder="Room name" />
+            <button id="create-room-btn">Create Room</button>
+            <div id="room-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="auth.js"></script>
+    <script src="chat.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
