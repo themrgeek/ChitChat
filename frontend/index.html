@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChitChat - Secure P2P Messaging</title>
+    <link rel="stylesheet" href="css/styles.css" />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="terminal-loader">
+      <div class="terminal-header">
+        <div class="terminal-title">ChitChat Security System</div>
+        <div class="terminal-controls">
+          <div class="control close"></div>
+          <div class="control minimize"></div>
+          <div class="control maximize"></div>
+        </div>
+      </div>
+      <div class="terminal-content">
+        <!-- Authentication View -->
+        <div id="authView" class="view">
+          <!-- Email Authentication -->
+          <div id="emailAuth" class="auth-container">
+            <div class="glow" style="text-align: center; margin-bottom: 30px">
+              <h1><i class="fas fa-user-secret"></i> ChitChat</h1>
+              <p>Secure P2P Encrypted Messaging</p>
+            </div>
+
+            <div class="auth-form">
+              <h3><i class="fas fa-envelope"></i> Enter Your Secure Email</h3>
+              <input
+                type="email"
+                id="emailInput"
+                class="terminal-input"
+                placeholder="operational-email@secure.com"
+              />
+              <button id="sendOTPBtn" class="terminal-btn">
+                <i class="fas fa-paper-plane"></i> Send OTP
+              </button>
+              <div
+                id="emailStatus"
+                class="status-message"
+                style="display: none"
+              ></div>
+            </div>
+          </div>
+
+          <!-- OTP Verification -->
+          <div
+            id="otpVerification"
+            class="auth-container"
+            style="display: none"
+          >
+            <div class="glow" style="text-align: center; margin-bottom: 30px">
+              <h2><i class="fas fa-shield-alt"></i> Identity Verification</h2>
+              <p>Enter the OTP sent to your secure channel</p>
+              <div
+                id="otpHelp"
+                class="help-text"
+                style="
+                  font-size: 12px;
+                  color: var(--secondary-color);
+                  margin-top: 10px;
+                "
+              >
+                <i class="fas fa-info-circle"></i> Check your server console for
+                the OTP and preview URL
+              </div>
+            </div>
+
+            <div class="auth-form">
+              <input
+                type="text"
+                id="otpInput"
+                class="terminal-input"
+                placeholder="Enter 6-digit OTP"
+                maxlength="6"
+              />
+              <button id="verifyOTPBtn" class="terminal-btn">
+                <i class="fas fa-check"></i> Verify OTP
+              </button>
+              <button
+                onclick="appManager.showEmailAuth()"
+                class="terminal-btn"
+                style="background: transparent"
+              >
+                <i class="fas fa-arrow-left"></i> Back
+              </button>
+              <div
+                id="otpStatus"
+                class="status-message"
+                style="display: none"
+              ></div>
+            </div>
+          </div>
+
+          <!-- Avatar Login -->
+          <div id="avatarLogin" class="auth-container" style="display: none">
+            <div class="glow" style="text-align: center; margin-bottom: 30px">
+              <h2><i class="fas fa-mask"></i> Avatar Authentication</h2>
+              <p>Enter your assigned identity credentials</p>
+            </div>
+
+            <div class="auth-form">
+              <input
+                type="text"
+                id="avatarNameInput"
+                class="terminal-input"
+                placeholder="Avatar Name"
+              />
+              <input
+                type="password"
+                id="avatarPasswordInput"
+                class="terminal-input"
+                placeholder="Temporary Password"
+              />
+              <button id="avatarLoginBtn" class="terminal-btn">
+                <i class="fas fa-sign-in-alt"></i> Authenticate
+              </button>
+              <button
+                onclick="appManager.showEmailAuth()"
+                class="terminal-btn"
+                style="background: transparent"
+              >
+                <i class="fas fa-user-plus"></i> New Identity
+              </button>
+              <div
+                id="loginStatus"
+                class="status-message"
+                style="display: none"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main Application View -->
+        <div id="mainView" class="view" style="display: none">
+          <!-- Navigation -->
+          <div class="app-nav">
+            <div class="nav-user">
+              <span class="status-indicator status-online"></span>
+              <!-- CHANGED: Dynamic username -->
+              <span id="currentAvatar">Loading your identity...</span>
+            </div>
+            <div class="nav-buttons">
+              <button id="navChat" class="nav-btn active">
+                <i class="fas fa-comments"></i> Chat
+              </button>
+              <button id="navSafe" class="nav-btn">
+                <i class="fas fa-vault"></i> Safe
+              </button>
+              <button id="navLogout" class="nav-btn">
+                <i class="fas fa-sign-out-alt"></i> Logout
+              </button>
+            </div>
+          </div>
+
+          <!-- Chat Interface -->
+          <div id="chatContainer" class="chat-container">
+            <!-- Session Setup -->
+            <div id="sessionSetup" class="session-container">
+              <div class="session-form">
+                <h3>
+                  <i class="fas fa-handshake"></i> Establish Secure Session
+                </h3>
+                <input
+                  type="text"
+                  id="targetAvatarInput"
+                  class="terminal-input"
+                  placeholder="Friend's Avatar Name"
+                />
+                <input
+                  type="text"
+                  id="secretCodeInput"
+                  class="terminal-input"
+                  placeholder="Secret Code"
+                />
+                <button id="requestSessionBtn" class="terminal-btn">
+                  <i class="fas fa-link"></i> Connect Securely
+                </button>
+              </div>
+            </div>
+
+            <!-- Active Chat -->
+            <div id="activeChat" class="active-chat" style="display: none">
+              <div class="chat-header">
+                <div class="chat-peer">
+                  <span class="status-indicator status-online"></span>
+                  <!-- CHANGED: Dynamic peer name -->
+                  <span id="peerAvatarName">Waiting for connection...</span>
+                </div>
+                <div class="chat-actions">
+                  <span class="encryption-status">
+                    <i class="fas fa-lock"></i> End-to-End Encrypted
+                  </span>
+                </div>
+              </div>
+
+              <div class="chat-main">
+                <div class="contacts-panel">
+                  <h4><i class="fas fa-users"></i> Active Contacts</h4>
+                  <div id="contactsList" class="contacts-list">
+                    <!-- Contacts will be populated here -->
+                  </div>
+                </div>
+
+                <div class="chat-area">
+                  <div id="messagesContainer" class="messages-container">
+                    <!-- Messages will appear here -->
+                    <div class="system-message">
+                      <i class="fas fa-shield-alt"></i> Secure session
+                      established. All messages are encrypted.
+                    </div>
+                  </div>
+
+                  <div class="message-input-area">
+                    <input
+                      type="text"
+                      id="messageInput"
+                      class="message-input"
+                      placeholder="Type your encrypted message..."
+                    />
+                    <input
+                      type="file"
+                      id="fileInput"
+                      class="file-input"
+                      accept="image/*,video/*,audio/*"
+                    />
+                    <label
+                      for="fileInput"
+                      class="terminal-btn"
+                      title="Send File"
+                    >
+                      <i class="fas fa-paperclip"></i>
+                    </label>
+                    <button id="sendMessageBtn" class="terminal-btn">
+                      <i class="fas fa-paper-plane"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Safe Folder -->
+          <div id="safeContainer" class="safe-container" style="display: none">
+            <div class="safe-header">
+              <h3><i class="fas fa-vault"></i> Secure Evidence Vault</h3>
+              <p>Locally encrypted storage with digital signatures</p>
+            </div>
+
+            <div class="safe-actions">
+              <button
+                onclick="safeManager.verifyAllFiles()"
+                class="terminal-btn"
+              >
+                <i class="fas fa-shield-alt"></i> Verify All
+              </button>
+              <button onclick="safeManager.exportSafe()" class="terminal-btn">
+                <i class="fas fa-download"></i> Export Safe
+              </button>
+            </div>
+
+            <div id="safeGrid" class="file-grid">
+              <!-- Files will be displayed here -->
+              <div class="no-files">
+                <i
+                  class="fas fa-box-open"
+                  style="font-size: 3em; margin-bottom: 20px"
+                ></i>
+                <p>No secured evidence in vault</p>
+                <small>Files from encrypted chats will appear here</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Status Toast -->
+    <div id="quickToast" class="quick-toast" style="display: none">
+      <div class="toast-content">
+        <span id="quickToastMessage"></span>
+      </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/chat.js"></script>
+    <script src="js/crypto.js"></script>
+    <script src="js/safe.js"></script>
+    <script src="js/app.js"></script>
+
+    <style>
+      /* Additional CSS for new elements */
+      .app-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        border-bottom: 1px solid var(--primary-color);
+        background: rgba(0, 20, 0, 0.3);
+      }
+
+      .nav-user {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .nav-buttons {
+        display: flex;
+        gap: 10px;
+      }
+
+      .nav-btn {
+        background: transparent;
+        border: 1px solid var(--primary-color);
+        color: var(--text-color);
+        padding: 8px 15px;
+        cursor: pointer;
+        border-radius: 3px;
+        transition: all 0.3s ease;
+      }
+
+      .nav-btn.active,
+      .nav-btn:hover {
+        background: rgba(0, 255, 0, 0.1);
+        box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+      }
+
+      .session-container {
+        padding: 40px;
+        text-align: center;
+      }
+
+      .session-form {
+        max-width: 400px;
+        margin: 0 auto;
+      }
+
+      .active-chat {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .chat-peer {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .encryption-status {
+        color: var(--secondary-color);
+        font-size: 0.9em;
+      }
+
+      .system-message {
+        text-align: center;
+        color: var(--secondary-color);
+        font-style: italic;
+        margin: 20px 0;
+        padding: 10px;
+        background: rgba(0, 100, 255, 0.1);
+        border: 1px solid var(--secondary-color);
+        border-radius: 5px;
+      }
+
+      .contacts-list {
+        margin-top: 15px;
+      }
+
+      .contact-item {
+        padding: 10px;
+        margin: 5px 0;
+        border: 1px solid var(--primary-color);
+        border-radius: 3px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .contact-item:hover {
+        background: rgba(0, 255, 0, 0.1);
+      }
+
+      .contact-item.online {
+        border-color: var(--primary-color);
+      }
+
+      .contact-item.offline {
+        border-color: var(--error-color);
+        opacity: 0.6;
+      }
+
+      .status-message {
+        margin-top: 15px;
+        padding: 10px;
+        border-radius: 3px;
+        text-align: center;
+        font-size: 14px;
+      }
+
+      .status-message.success {
+        background: rgba(0, 255, 0, 0.1);
+        border: 1px solid var(--primary-color);
+        color: var(--primary-color);
+      }
+
+      .status-message.error {
+        background: rgba(255, 0, 0, 0.1);
+        border: 1px solid var(--error-color);
+        color: var(--error-color);
+      }
+
+      .status-message.info {
+        background: rgba(0, 255, 255, 0.1);
+        border: 1px solid var(--secondary-color);
+        color: var(--secondary-color);
+      }
+
+      .help-text {
+        font-size: 12px;
+        color: var(--secondary-color);
+        margin-top: 10px;
+        text-align: center;
+      }
+
+      .quick-toast {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1001;
+        max-width: 300px;
+      }
+
+      .quick-toast .toast-content {
+        background: var(--terminal-color);
+        border: 1px solid var(--primary-color);
+        padding: 15px;
+        border-radius: 5px;
+        box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        animation: slideIn 0.3s ease-out;
+      }
+
+      .quick-toast.success .toast-content {
+        border-color: var(--primary-color);
+      }
+
+      .quick-toast.error .toast-content {
+        border-color: var(--error-color);
+      }
+
+      .quick-toast.info .toast-content {
+        border-color: var(--secondary-color);
+      }
+
+      .button-loading {
+        position: relative;
+        color: transparent !important;
+      }
+
+      .button-loading::after {
+        content: "";
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        top: 50%;
+        left: 50%;
+        margin-left: -10px;
+        margin-top: -10px;
+        border: 2px solid var(--primary-color);
+        border-radius: 50%;
+        border-right-color: transparent;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes slideIn {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .no-files {
+        text-align: center;
+        padding: 40px;
+        color: var(--secondary-color);
+        grid-column: 1 / -1;
+      }
+
+      .file-verified.verified {
+        color: var(--primary-color);
+      }
+
+      .file-verified.unverified {
+        color: var(--error-color);
+      }
+
+      .file-actions {
+        margin-top: 10px;
+        display: flex;
+        gap: 5px;
+        justify-content: center;
+      }
+
+      /* Responsive adjustments */
+      @media (max-width: 768px) {
+        .app-nav {
+          flex-direction: column;
+          gap: 15px;
+        }
+
+        .nav-buttons {
+          width: 100%;
+          justify-content: space-between;
+        }
+
+        .session-container {
+          padding: 20px;
+        }
+      }
+    </style>
+
+    <script>
+      // Enhanced utility functions for UI
+      function showQuickToast(message, type = "info", duration = 3000) {
+        const toast = document.getElementById("quickToast");
+        const messageEl = document.getElementById("quickToastMessage");
+
+        messageEl.textContent = message;
+        toast.className = `quick-toast ${type}`;
+        toast.style.display = "block";
+
+        // Auto hide
+        setTimeout(() => {
+          toast.style.display = "none";
+        }, duration);
+      }
+
+      function showButtonLoading(button, text = "Processing...") {
+        button.disabled = true;
+        button.classList.add("button-loading");
+        button.setAttribute("data-original-text", button.innerHTML);
+        button.innerHTML = text;
+      }
+
+      function hideButtonLoading(button) {
+        button.disabled = false;
+        button.classList.remove("button-loading");
+        const originalText = button.getAttribute("data-original-text");
+        if (originalText) {
+          button.innerHTML = originalText;
+        }
+      }
+
+      function showStatusMessage(elementId, message, type = "info") {
+        const element = document.getElementById(elementId);
+        element.textContent = message;
+        element.className = `status-message ${type}`;
+        element.style.display = "block";
+
+        // Auto hide success/info messages after 5 seconds
+        if (type !== "error") {
+          setTimeout(() => {
+            element.style.display = "none";
+          }, 5000);
+        }
+      }
+
+      function hideStatusMessage(elementId) {
+        const element = document.getElementById(elementId);
+        element.style.display = "none";
+      }
+
+      function showChatInterface() {
+        document.getElementById("sessionSetup").style.display = "none";
+        document.getElementById("activeChat").style.display = "block";
+      }
+
+      // Initialize when page loads
+      document.addEventListener("DOMContentLoaded", function () {
+        console.log("🔒 ChitChat Security System Initialized");
+
+        // Add enter key support
+        document
+          .getElementById("emailInput")
+          ?.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+              document.getElementById("sendOTPBtn").click();
+            }
+          });
+
+        document
+          .getElementById("otpInput")
+          ?.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+              document.getElementById("verifyOTPBtn").click();
+            }
+          });
+
+        document
+          .getElementById("avatarPasswordInput")
+          ?.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+              document.getElementById("avatarLoginBtn").click();
+            }
+          });
+      });
+    </script>
+    <!-- Debug Panel (remove in production) -->
+    <div
+      style="
+        position: fixed;
+        bottom: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        color: #00ff00;
+        padding: 10px;
+        border: 1px solid #00ff00;
+        font-family: monospace;
+        font-size: 12px;
+        z-index: 9999;
+      "
+    >
+      <div><strong>Debug Info:</strong></div>
+      <div id="debugAuthStatus">Auth: Checking...</div>
+      <div id="debugUserInfo">User: None</div>
+      <div id="debugSocketStatus">Socket: Disconnected</div>
+      <button
+        onclick="checkAuthStatus()"
+        style="
+          background: #00ff00;
+          color: black;
+          border: none;
+          padding: 2px 5px;
+          margin-top: 5px;
+          cursor: pointer;
+        "
+      >
+        Refresh Debug
+      </button>
+    </div>
+
+    <script>
+      function checkAuthStatus() {
+        const authStatus = document.getElementById("debugAuthStatus");
+        const userInfo = document.getElementById("debugUserInfo");
+        const socketStatus = document.getElementById("debugSocketStatus");
+
+        // Check auth status
+        if (window.authManager) {
+          authStatus.textContent = `Auth: ${
+            authManager.isLoggedIn() ? "Logged In" : "Not Logged In"
+          }`;
+          userInfo.textContent = `User: ${
+            authManager.currentUser
+              ? authManager.currentUser.avatarName
+              : "None"
+          }`;
+        } else {
+          authStatus.textContent = "Auth: Manager not found";
+        }
+
+        // Check socket status
+        if (window.chatManager && chatManager.socket) {
+          socketStatus.textContent = `Socket: ${
+            chatManager.socket.connected ? "Connected" : "Disconnected"
+          }`;
+        } else {
+          socketStatus.textContent = "Socket: Not initialized";
+        }
+      }
+
+      // Update debug info every 3 seconds
+      setInterval(checkAuthStatus, 3000);
+      checkAuthStatus();
+    </script>
+  </body>
+</html>
