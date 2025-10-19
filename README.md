@@ -39,10 +39,6 @@ It provides a responsive web interface, real-time socket-based communication, an
 
 ## ⚙️ Setup Instructions
 
-### 1️⃣ Clone the Repository
-```bash
-git clone https://github.com/themrgeek/ChitChat.git
-cd ChitChat
 <img width="1512" height="981" alt="image" src="https://github.com/user-attachments/assets/f051b699-97b3-4c3c-8e3d-c4e1bac34333" />
 <img width="1511" height="971" alt="image" src="https://github.com/user-attachments/assets/d91d3df4-a9c2-4252-978e-9dd8a240268b" />
 <img width="1508" height="903" alt="image" src="https://github.com/user-attachments/assets/8ebf7904-8914-40c8-a09f-f7b504ae55fe" />
