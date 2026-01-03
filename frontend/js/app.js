@@ -9,25 +9,60 @@ class AppManager {
 
   initializeApp() {
     this.setupEventListeners();
-    this.showEmailAuth();
+    this.showUserTypeSelection();
     console.log("🚀 ChitChat App Initialized");
   }
 
   // Setup global event listeners
   setupEventListeners() {
-    // Email auth form
-    document.getElementById("sendOTPBtn")?.addEventListener("click", () => {
-      this.handleSendOTP();
+    // User type selection
+    document.getElementById("newUserBtn")?.addEventListener("click", () => {
+      this.handleNewUser();
     });
+    document
+      .getElementById("existingUserBtn")
+      ?.addEventListener("click", () => {
+        this.showAvatarLogin();
+      });
 
-    // OTP verification form
-    document.getElementById("verifyOTPBtn")?.addEventListener("click", () => {
-      this.handleVerifyOTP();
-    });
+    // New user setup
+    document
+      .getElementById("continueToLoginBtn")
+      ?.addEventListener("click", () => {
+        this.showAvatarLogin();
+      });
 
     // Avatar login form
     document.getElementById("avatarLoginBtn")?.addEventListener("click", () => {
       this.handleAvatarLogin();
+    });
+
+    // Login OTP verification
+    document
+      .getElementById("verifyLoginOTPBtn")
+      ?.addEventListener("click", () => {
+        this.handleVerifyLoginOTP();
+      });
+
+    // Post-login options
+    document.getElementById("chatOptionBtn")?.addEventListener("click", () => {
+      this.showChatInterface();
+    });
+    document.getElementById("audioOptionBtn")?.addEventListener("click", () => {
+      this.showMessage("Audio calls coming soon!", "info");
+    });
+    document.getElementById("videoOptionBtn")?.addEventListener("click", () => {
+      this.showMessage("Video calls coming soon!", "info");
+    });
+
+    // Legacy email auth form
+    document.getElementById("sendOTPBtn")?.addEventListener("click", () => {
+      this.handleSendOTP();
+    });
+
+    // Legacy OTP verification form
+    document.getElementById("verifyOTPBtn")?.addEventListener("click", () => {
+      this.handleVerifyOTP();
     });
 
     // Session request
@@ -67,6 +102,9 @@ class AppManager {
       .getElementById("navSafe")
       ?.addEventListener("click", () => this.showSafeFolder());
     document
+      .getElementById("navSettings")
+      ?.addEventListener("click", () => this.showSettings());
+    document
       .getElementById("navLogout")
       ?.addEventListener("click", () => this.handleLogout());
 
@@ -92,6 +130,15 @@ class AppManager {
       ?.addEventListener("keypress", (e) => {
         if (e.key === "Enter") {
           this.handleAvatarLogin();
+        }
+      });
+
+    // Enter key for login OTP
+    document
+      .getElementById("loginOTPInput")
+      ?.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          this.handleVerifyLoginOTP();
         }
       });
   }
@@ -203,6 +250,37 @@ class AppManager {
     }
   }
 
+  // Handle new user creation
+  async handleNewUser() {
+    this.showLoading("Creating your secure identity...");
+
+    try {
+      const response = await fetch("/api/auth/create-new-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        this.showMessage(
+          "Secure identity created! Check your console for details.",
+          "success"
+        );
+        this.showNewUserSetup(data);
+      } else {
+        throw new Error(data.error || "Failed to create new user");
+      }
+    } catch (error) {
+      console.error("New user creation error:", error);
+      this.showMessage("Failed to create identity: " + error.message, "error");
+    } finally {
+      this.hideLoading();
+    }
+  }
+
   // Handle avatar login
   async handleAvatarLogin(avatarName, password) {
     const avatarNameInput = document
@@ -224,14 +302,80 @@ class AppManager {
       );
       if (result) {
         this.showMessage(
-          "Secure login successful! Welcome, " + avatarNameInput,
+          "Credentials verified! Sending OTP to your Ethereal email.",
+          "success"
+        );
+
+        // Store user data temporarily
+        this.tempUserData = {
+          avatarName: result.avatarName,
+          publicKey: result.publicKey,
+        };
+
+        // Show OTP verification for login
+        this.showLoginOTPVerification();
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      this.showMessage("Login failed: " + error.message, "error");
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+  // Handle login OTP verification
+  async handleVerifyLoginOTP() {
+    const otp = document.getElementById("loginOTPInput").value.trim();
+
+    if (!otp) {
+      this.showMessage("Please enter the OTP", "error");
+      return;
+    }
+
+    if (!this.currentEthrealEmail) {
+      this.showMessage("Email not found. Please start over.", "error");
+      return;
+    }
+
+    if (!this.tempUserData || !this.tempUserData.avatarName) {
+      this.showMessage("User data not found. Please start over.", "error");
+      return;
+    }
+
+    console.log("🔐 Verifying login OTP:", {
+      email: this.currentEthrealEmail,
+      avatarName: this.tempUserData.avatarName,
+      otp: otp,
+    });
+
+    this.showLoading("Verifying OTP...");
+
+    try {
+      const response = await fetch("/api/auth/verify-login-otp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: this.currentEthrealEmail,
+          avatarName: this.tempUserData.avatarName,
+          otp: otp,
+        }),
+      });
+
+      const data = await response.json();
+      console.log("OTP verification response:", response.status, data);
+
+      if (response.ok) {
+        this.showMessage(
+          "Secure login successful! Welcome, " + this.tempUserData.avatarName,
           "success"
         );
 
         // Update current user in app manager
         this.currentUser = {
-          avatarName: result.avatarName,
-          publicKey: result.publicKey,
+          avatarName: this.tempUserData.avatarName,
+          publicKey: this.tempUserData.publicKey,
         };
 
         // Update the UI with the actual username
@@ -240,11 +384,13 @@ class AppManager {
         // Initialize socket connection for chat
         chatManager.initializeSocket();
 
-        this.showMainInterface();
+        this.showPostLoginOptions();
+      } else {
+        throw new Error(data.error || "Invalid OTP");
       }
     } catch (error) {
-      console.error("Login error:", error);
-      this.showMessage("Login failed: " + error.message, "error");
+      console.error("Verify login OTP error:", error);
+      this.showMessage("OTP verification failed: " + error.message, "error");
     } finally {
       this.hideLoading();
     }
@@ -263,43 +409,207 @@ class AppManager {
   }
 
   // View management methods
-  showEmailAuth() {
+  showUserTypeSelection() {
     this.showView("authView");
-    document.getElementById("emailAuth").style.display = "block";
-    document.getElementById("otpVerification").style.display = "none";
-    document.getElementById("avatarLogin").style.display = "none";
+    const elements = [
+      "userTypeSelection",
+      "newUserSetup",
+      "avatarLogin",
+      "loginOTPVerification",
+      "emailAuth",
+      "otpVerification",
+    ];
+    elements.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = id === "userTypeSelection" ? "block" : "none";
+    });
   }
 
-  showOTPVerification() {
-    document.getElementById("emailAuth").style.display = "none";
-    document.getElementById("otpVerification").style.display = "block";
-    document.getElementById("avatarLogin").style.display = "none";
+  showNewUserSetup(data) {
+    const elements = [
+      "userTypeSelection",
+      "newUserSetup",
+      "avatarLogin",
+      "loginOTPVerification",
+    ];
+    elements.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = id === "newUserSetup" ? "block" : "none";
+    });
+
+    // Update the content with user data
+    const content = document.getElementById("newUserContent");
+    if (data && data.avatarName) {
+      content.innerHTML = `
+        <div class="credentials" style="text-align: center;">
+          <h3>🕵️ Your Secure Identity Created!</h3>
+          <p><strong>Avatar Name:</strong> ${data.avatarName}</p>
+          <p><strong>Temporary Password:</strong> ${data.password}</p>
+          <p><strong>Ethereal Email:</strong> ${data.etherealEmail}</p>
+          ${
+            data.etherealPassword
+              ? `<p><strong>Ethereal Password:</strong> ${data.etherealPassword}</p>`
+              : ""
+          }
+          <p style="font-size: 12px; color: var(--secondary-color); margin-top: 15px;">
+            <i class="fas fa-info-circle"></i> Your credentials have been emailed to the Ethereal address above.
+            ${
+              data.etherealPassword
+                ? '<br><i class="fas fa-external-link-alt"></i> Access your mailbox at <a href="https://ethereal.email" target="_blank" style="color: var(--primary-color);">ethereal.email</a>'
+                : ""
+            }
+          </p>
+        </div>
+      `;
+      const continueBtn = document.getElementById("continueToLoginBtn");
+      if (continueBtn) continueBtn.style.display = "block";
+
+      // Auto-fill login form
+      document.getElementById("avatarNameInput").value = data.avatarName;
+      document.getElementById("avatarPasswordInput").value = data.password;
+    }
   }
 
   showAvatarLogin() {
     this.showView("authView");
-    document.getElementById("emailAuth").style.display = "none";
-    document.getElementById("otpVerification").style.display = "none";
-    document.getElementById("avatarLogin").style.display = "block";
+    const elements = [
+      "userTypeSelection",
+      "newUserSetup",
+      "avatarLogin",
+      "loginOTPVerification",
+      "emailAuth",
+      "otpVerification",
+    ];
+    elements.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = id === "avatarLogin" ? "block" : "none";
+    });
+  }
+
+  async showLoginOTPVerification() {
+    const elements = [
+      "userTypeSelection",
+      "newUserSetup",
+      "avatarLogin",
+      "loginOTPVerification",
+    ];
+    elements.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el)
+        el.style.display = id === "loginOTPVerification" ? "block" : "none";
+    });
+
+    // Get the ethereal email for this user
+    if (this.tempUserData && this.tempUserData.avatarName) {
+      // We'll need to fetch the email from the backend
+      await this.loadUserEtherealEmail();
+    }
+  }
+
+  async loadUserEtherealEmail() {
+    try {
+      console.log("Loading ethereal email for:", this.tempUserData.avatarName);
+      const response = await fetch(
+        `/api/auth/get-user-email/${this.tempUserData.avatarName}`
+      );
+      const data = await response.json();
+      console.log("Email response:", response.status, data);
+
+      if (response.ok && data.email) {
+        this.currentEthrealEmail = data.email;
+        document.getElementById("etherealEmail").textContent = data.email;
+        console.log("✅ Ethereal email loaded:", data.email);
+      } else {
+        console.error(
+          "❌ Failed to load email:",
+          data.error || "Unknown error"
+        );
+        this.showMessage(
+          "Failed to load user email. Please try again.",
+          "error"
+        );
+      }
+    } catch (error) {
+      console.error("❌ Error loading user email:", error);
+      this.showMessage(
+        "Network error while loading email. Please check your connection.",
+        "error"
+      );
+    }
+  }
+
+  showPostLoginOptions() {
+    this.showView("mainView");
+
+    const postLoginOptions = document.getElementById("postLoginOptions");
+    const appNav = document.getElementById("app-nav");
+    const chatContainer = document.getElementById("chatContainer");
+    const safeContainer = document.getElementById("safeContainer");
+
+    if (postLoginOptions) postLoginOptions.style.display = "block";
+    if (appNav) appNav.style.display = "none";
+    if (chatContainer) chatContainer.style.display = "none";
+    if (safeContainer) safeContainer.style.display = "none";
+
+    // Update welcome message
+    if (this.currentUser && this.currentUser.avatarName) {
+      const welcomeAvatar = document.getElementById("welcomeAvatar");
+      if (welcomeAvatar) {
+        welcomeAvatar.textContent = this.currentUser.avatarName;
+      }
+    }
+  }
+
+  showEmailAuth() {
+    this.showView("authView");
+    const elements = ["emailAuth", "otpVerification", "avatarLogin"];
+    elements.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = id === "emailAuth" ? "block" : "none";
+    });
+  }
+
+  showOTPVerification() {
+    const elements = ["emailAuth", "otpVerification", "avatarLogin"];
+    elements.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = id === "otpVerification" ? "block" : "none";
+    });
   }
 
   showMainInterface() {
     this.showView("mainView");
+    const postLoginOptions = document.getElementById("postLoginOptions");
+    const appNav = document.getElementById("app-nav");
+    if (postLoginOptions) postLoginOptions.style.display = "none";
+    if (appNav) appNav.style.display = "block";
     this.updateUserInterface(); // Ensure username is updated
-    this.showChatInterface();
+    // Note: showChatInterface() will be called separately when needed
   }
 
   showChatInterface() {
-    document.getElementById("chatContainer").style.display = "block";
-    document.getElementById("safeContainer").style.display = "none";
+    // First ensure we're in main interface
+    this.showMainInterface();
+    const chatContainer = document.getElementById("chatContainer");
+    const safeContainer = document.getElementById("safeContainer");
+    if (chatContainer) chatContainer.style.display = "block";
+    if (safeContainer) safeContainer.style.display = "none";
     this.updateActiveNav("navChat");
   }
 
   showSafeFolder() {
-    document.getElementById("chatContainer").style.display = "none";
-    document.getElementById("safeContainer").style.display = "block";
+    const chatContainer = document.getElementById("chatContainer");
+    const safeContainer = document.getElementById("safeContainer");
+    if (chatContainer) chatContainer.style.display = "none";
+    if (safeContainer) safeContainer.style.display = "block";
     safeManager.updateSafeUI();
     this.updateActiveNav("navSafe");
+  }
+
+  showSettings() {
+    // Placeholder for future settings panel
+    showQuickToast("Settings panel coming soon!", "info", 3000);
+    this.updateActiveNav("navSettings");
   }
 
   showView(viewId) {
@@ -309,8 +619,13 @@ class AppManager {
     });
 
     // Show target view
-    document.getElementById(viewId).style.display = "block";
-    this.currentView = viewId;
+    const targetView = document.getElementById(viewId);
+    if (targetView) {
+      targetView.style.display = "block";
+      this.currentView = viewId;
+    } else {
+      console.error(`❌ View element with id "${viewId}" not found`);
+    }
   }
 
   updateActiveNav(activeNavId) {
@@ -345,11 +660,13 @@ class AppManager {
   handleLogout() {
     this.currentUser = null;
     this.currentEmail = null;
+    this.currentEthrealEmail = null;
+    this.tempUserData = null;
     authManager.logout();
     if (chatManager.socket) {
       chatManager.socket.disconnect();
     }
-    this.showEmailAuth();
+    this.showUserTypeSelection();
     this.showMessage("Secure logout completed.", "info");
   }
 }

@@ -105,6 +105,53 @@ function setupSocket(io) {
       }
     });
 
+    // Typing indicators
+    socket.on("typing-start", (data) => {
+      const { targetAvatar } = data;
+      const targetSocketId = connectedUsers.get(targetAvatar);
+
+      if (targetSocketId) {
+        socket.to(targetSocketId).emit("user-typing", {
+          avatarName: socket.avatarName,
+          isTyping: true,
+        });
+      }
+    });
+
+    socket.on("typing-stop", (data) => {
+      const { targetAvatar } = data;
+      const targetSocketId = connectedUsers.get(targetAvatar);
+
+      if (targetSocketId) {
+        socket.to(targetSocketId).emit("user-typing", {
+          avatarName: socket.avatarName,
+          isTyping: false,
+        });
+      }
+    });
+
+    // End session
+    socket.on("end-session", (data) => {
+      const { targetAvatar } = data;
+      const targetSocketId = connectedUsers.get(targetAvatar);
+
+      console.log(`🔚 Session ended by ${socket.avatarName} with ${targetAvatar}`);
+
+      if (targetSocketId) {
+        // Notify the other user that session has ended
+        socket.to(targetSocketId).emit("session-ended", {
+          endedBy: socket.avatarName,
+          message: "The session has been terminated by the other participant."
+        });
+      }
+
+      // Also notify the session ender
+      socket.emit("session-ended", {
+        endedBy: socket.avatarName,
+        message: "You have ended the session."
+      });
+    });
+
     // Handle disconnection
     socket.on("disconnect", () => {
       console.log(`🔌 User disconnected: ${socket.id}`);

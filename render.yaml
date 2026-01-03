@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: gupt-backend
+    runtime: node
+    buildCommand: npm run build
+    startCommand: npm start
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false # You'll need to set this manually in Render dashboard
+      - key: JWT_SECRET
+        sync: false # You'll need to set this manually in Render dashboard
+      - key: EMAIL_USER
+        sync: false # You'll need to set this manually in Render dashboard
+      - key: EMAIL_PASS
+        sync: false # You'll need to set this manually in Render dashboard

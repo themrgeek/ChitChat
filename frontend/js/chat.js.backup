@@ -1,0 +1,530 @@
+class ChatManager {
+  constructor() {
+    this.socket = null;
+    this.currentSession = null;
+    this.contacts = new Map();
+  }
+
+  // Initialize socket connection
+  initializeSocket() {
+    this.socket = io();
+
+    this.socket.on("connect", () => {
+      console.log("✅ Connected to secure server");
+
+      // Register user with server (strict authentication required)
+      if (authManager.currentUser && authManager.currentUser.avatarName && authManager.currentUser.authToken) {
+        this.socket.emit("user-join", {
+          avatarName: authManager.currentUser.avatarName,
+          authToken: authManager.currentUser.authToken,
+        });
+        console.log("🔐 Authenticating with server using auth token");
+      } else {
+        console.error("❌ Cannot join: Missing authentication credentials");
+        this.showMessage("Authentication failed. Please login again.", "error");
+        return;
+      }
+    });
+
+    this.setupSocketListeners();
+  }
+
+  // Setup socket event listeners
+  setupSocketListeners() {
+    // Authentication responses
+    this.socket.on("join-error", (data) => {
+      console.error("❌ Join error:", data.message);
+      this.showMessage(`Connection failed: ${data.message}`, "error");
+      // Force logout on authentication failure
+      authManager.clearSession();
+      window.location.reload();
+    });
+
+    this.socket.on("force-disconnect", (data) => {
+      console.log("🔄 Forced disconnect:", data.reason);
+      this.showMessage(`Disconnected: ${data.reason}`, "info");
+      authManager.clearSession();
+      window.location.reload();
+    });
+
+    this.socket.on("online-users", (data) => {
+      console.log("👥 Online users:", data.users);
+      this.updateOnlineUsers(data.users);
+    });
+
+    // Session events
+    this.socket.on("session-request", (data) => {
+      this.handleSessionRequest(data);
+    });
+
+    this.socket.on("session-established", (data) => {
+      this.handleSessionEstablished(data);
+    });
+
+    // Message events
+    this.socket.on("new-message", (data) => {
+      this.handleNewMessage(data);
+    });
+
+    this.socket.on("file-received", (data) => {
+      this.handleFileReceived(data);
+    });
+
+    // User status events
+    this.socket.on("user-online", (data) => {
+      this.updateUserStatus(data.avatarName, true);
+    });
+
+    this.socket.on("user-offline", (data) => {
+      this.updateUserStatus(data.avatarName, false);
+    });
+
+    // Message status
+    this.socket.on("message-read", (data) => {
+      this.updateMessageStatus(data.messageId, "read");
+    });
+
+    // Message/file errors
+    this.socket.on("message-error", (data) => {
+      console.error("❌ Message error:", data.error);
+      this.showMessage(`Message failed: ${data.error}`, "error");
+    });
+
+    this.socket.on("file-error", (data) => {
+      console.error("❌ File error:", data.error);
+      this.showMessage(`File transfer failed: ${data.error}`, "error");
+    });
+
+    // Session pairing events
+    this.socket.on("pairing-pending", (data) => {
+      console.log("⏳ Pairing pending:", data.message);
+      this.showMessage(data.message, "info");
+    });
+
+    // Session events
+    this.socket.on("session-established", (data) => {
+      this.handleSessionEstablished(data);
+    });
+
+    this.socket.on("session-ended", (data) => {
+      console.log("🔚 Session ended:", data.reason);
+      this.showMessage(`Session ended: ${data.reason}`, "info");
+      this.currentSession = null;
+      // Return to session setup
+      document.getElementById("sessionSetup").style.display = "block";
+      document.getElementById("activeChat").style.display = "none";
+    });
+
+    // Session error
+    this.socket.on("session-error", (data) => {
+      this.showMessage(`Session error: ${data.message}`, "error");
+    });
+  }
+
+  // Request session with another user using mutual secret code
+  requestSession(targetAvatar, secretCode) {
+    // Basic authentication check
+    if (!authManager.isLoggedIn()) {
+      this.showMessage(
+        "Please login first to establish sessions.",
+        "error"
+      );
+      return;
+    }
+
+    if (!this.socket || !this.socket.connected) {
+      this.showMessage("Not connected to server. Please refresh and try again.", "error");
+      return;
+    }
+
+    if (!targetAvatar || !secretCode) {
+      this.showMessage(
+        "Both target avatar name and secret code are required",
+        "error"
+      );
+      return;
+    }
+
+    // Validate secret code format (at least 4 characters)
+    if (secretCode.length < 4) {
+      this.showMessage(
+        "Secret code must be at least 4 characters long",
+        "error"
+      );
+      return;
+    }
+
+    // Check if already in a session
+    if (this.currentSession) {
+      this.showMessage(
+        "You are already in an active session. End it first.",
+        "error"
+      );
+      return;
+    }
+
+    console.log("🔐 Session pairing request to:", targetAvatar, "with code:", secretCode);
+    console.log("👤 Current user:", authManager.currentUser.avatarName);
+
+    this.socket.emit("session-pairing", {
+      targetAvatar: targetAvatar.trim(),
+      secretCode: secretCode.trim(),
+      initiatorAvatar: authManager.currentUser.avatarName,
+    });
+
+    this.showMessage(`🔐 Session pairing initiated with ${targetAvatar}. Waiting for them to enter the same code...`, "info");
+  }
+  // Handle incoming session request (strict validation)
+  handleSessionRequest(data) {
+    console.log("📨 Strict session request received from:", data.initiatorAvatar);
+
+    // Show session request modal/prompt
+    const accept = confirm(
+      `🔐 STRICT SESSION REQUEST\n\n` +
+      `From: ${data.initiatorAvatar}\n` +
+      `Secret Code: ${data.secretCode || 'None provided'}\n` +
+      `Request ID: ${data.requestId || 'Unknown'}\n\n` +
+      `⚠️  IMPORTANT: Only accept if you recognize this user and secret code!\n\n` +
+      `Accept this secure session?`
+    );
+
+    if (accept) {
+      const sessionKey = chitChatCrypto.generateSessionKey();
+
+      this.socket.emit("session-accept", {
+        targetAvatar: data.initiatorAvatar,
+        sessionKey: sessionKey,
+        secretCode: data.secretCode,
+      });
+
+      console.log("✅ Strict session accepted for:", data.initiatorAvatar);
+    } else {
+      this.showMessage("Session request declined", "info");
+      console.log("❌ Session request declined from:", data.initiatorAvatar);
+    }
+  }
+
+  // Handle session establishment
+  handleSessionEstablished(data) {
+    this.currentSession = {
+      sessionId: data.sessionId,
+      peerAvatar: data.peerAvatar,
+      sessionKey: data.sessionKey,
+      secretCode: data.secretCode,
+      establishedAt: new Date(),
+      pairingMethod: data.pairingMethod || false
+    };
+
+    chitChatCrypto.sessionKey = data.sessionKey;
+
+    const methodText = data.pairingMethod ? "via mutual secret code pairing" : "via direct request";
+    console.log(`✅ Session established with ${data.peerAvatar} ${methodText}, Session ID: ${data.sessionId}`);
+
+    this.showMessage(
+      `🔐 Secure session established with ${data.peerAvatar} ${methodText}`,
+      "success"
+    );
+    this.showChatInterface();
+  }
+
+  // Send encrypted message
+  sendMessage(message) {
+    if (!this.currentSession) {
+      this.showMessage("No active session", "error");
+      return;
+    }
+
+    if (!this.socket) {
+      this.showMessage("Not connected to server", "error");
+      return;
+    }
+
+    const encryptedMessage = chitChatCrypto.encryptMessage(message);
+    const messageId =
+      Date.now().toString() + Math.random().toString(36).substr(2, 9);
+
+    // Display message locally immediately
+    this.displayMessage({
+      message: message,
+      messageId: messageId,
+      from: authManager.currentUser.avatarName,
+      timestamp: new Date(),
+      isSent: true,
+      status: "sent",
+    });
+
+    // Send to peer with session validation
+    this.socket.emit("send-message", {
+      targetAvatar: this.currentSession.peerAvatar,
+      encryptedMessage: encryptedMessage,
+      messageId: messageId,
+      sessionId: this.currentSession.sessionId,
+    });
+
+    console.log("💬 Message sent:", message);
+  }
+
+  // Handle incoming message
+  handleNewMessage(data) {
+    const decryptedMessage = chitChatCrypto.decryptMessage(
+      data.encryptedMessage
+    );
+
+    if (decryptedMessage) {
+      this.displayMessage({
+        message: decryptedMessage,
+        messageId: data.messageId,
+        from: data.from,
+        timestamp: new Date(data.timestamp),
+        isSent: false,
+        status: "delivered",
+      });
+
+      console.log("💬 Message received:", decryptedMessage);
+    } else {
+      console.error("❌ Failed to decrypt message");
+    }
+  }
+
+  // Send file
+  async sendFile(file) {
+    if (!this.currentSession) {
+      this.showMessage("No active session", "error");
+      return;
+    }
+
+    try {
+      this.showMessage("Encrypting and sending file...", "info");
+
+      const fileData = await chitChatCrypto.fileToBase64(file);
+      const encryptedFileData = chitChatCrypto.encryptFile(fileData);
+
+      this.socket.emit("send-file", {
+        targetAvatar: this.currentSession.peerAvatar,
+        fileData: encryptedFileData,
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        sessionId: this.currentSession.sessionId,
+      });
+
+      this.showMessage("File sent securely", "success");
+
+      // Auto-save sent files to safe
+      safeManager.saveFile({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        data: fileData,
+        from: authManager.currentUser.avatarName,
+        verified: true,
+      });
+    } catch (error) {
+      console.error("❌ File send error:", error);
+      this.showMessage("Failed to send file", "error");
+    }
+  }
+
+  // Handle received file
+  handleFileReceived(data) {
+    const decryptedFileData = chitChatCrypto.decryptFile(data.fileData);
+
+    if (decryptedFileData) {
+      // Save to safe folder
+      safeManager.saveFile({
+        name: data.fileName,
+        type: data.fileType,
+        size: data.fileSize,
+        data: decryptedFileData,
+        from: data.from,
+        timestamp: data.timestamp,
+        verified: true,
+      });
+
+      this.showMessage(
+        `File received from ${data.from} and saved to SAFE`,
+        "success"
+      );
+
+      // Show file received message in chat
+      this.displayMessage({
+        message: `📎 Sent a file: ${data.fileName}`,
+        messageId: "file-" + Date.now(),
+        from: data.from,
+        timestamp: new Date(data.timestamp),
+        isSent: false,
+        status: "delivered",
+        isFile: true,
+        fileName: data.fileName,
+      });
+    } else {
+      this.showMessage("Failed to decrypt received file", "error");
+    }
+  }
+
+  // Display message in chat
+  displayMessage(messageData) {
+    const messagesContainer = document.getElementById("messagesContainer");
+    if (!messagesContainer) return;
+
+    const messageElement = document.createElement("div");
+    messageElement.className = `message-bubble ${messageData.isSent ? "sent" : "received"}`;
+    messageElement.setAttribute("data-message-id", messageData.messageId);
+
+    if (messageData.isFile) {
+      messageElement.innerHTML = `
+        <div class="message-content">
+          <div class="file-info">
+            <i class="fas fa-file"></i>
+            <span class="file-name">${messageData.fileName}</span>
+          </div>
+          <button class="file-download-btn" onclick="safeManager.downloadFileByIndex('${messageData.messageId}')">
+            <i class="fas fa-download"></i>
+          </button>
+        </div>
+        <div class="message-meta">
+          <span class="message-time">${new Date(messageData.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          ${messageData.isSent ? `<span class="message-status">${messageData.status === "read" ? "✓✓" : "✓"}</span>` : ""}
+        </div>
+      `;
+    } else {
+      messageElement.innerHTML = `
+        <div class="message-content">
+          ${messageData.message}
+        </div>
+        <div class="message-meta">
+          <span class="message-time">${new Date(messageData.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          ${messageData.isSent ? `<span class="message-status">${messageData.status === "read" ? "✓✓" : "✓"}</span>` : ""}
+        </div>
+      `;
+    }
+
+    messagesContainer.appendChild(messageElement);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Add typing indicator animation for new messages
+    messageElement.style.animation = "messageSlideIn 0.3s ease-out";
+  }
+
+  // Update message status
+  updateMessageStatus(messageId, status) {
+    // Find message and update status
+    const messages = document.querySelectorAll(".message");
+    messages.forEach((msg) => {
+      if (
+        msg.querySelector(".message-status") &&
+        msg.textContent.includes(messageId)
+      ) {
+        const statusEl = msg.querySelector(".message-status");
+        statusEl.textContent = status === "read" ? "✓✓" : "✓";
+      }
+    });
+  }
+
+  // Update online users list
+  updateOnlineUsers(users) {
+    this.onlineUsers = users;
+    console.log(`👥 Online users updated:`, users);
+    // Update UI if contacts panel exists
+    this.updateContactsList();
+  }
+
+  // Update user online status
+  updateUserStatus(avatarName, isOnline) {
+    console.log(`👤 ${avatarName} is now ${isOnline ? "online" : "offline"}`);
+
+    if (isOnline && this.onlineUsers && !this.onlineUsers.includes(avatarName)) {
+      this.onlineUsers.push(avatarName);
+    } else if (!isOnline && this.onlineUsers) {
+      this.onlineUsers = this.onlineUsers.filter(user => user !== avatarName);
+    }
+
+    this.updateContactsList();
+  }
+
+  // Update contacts list in UI
+  updateContactsList() {
+    const contactsList = document.getElementById("contactsList");
+    if (!contactsList || !this.onlineUsers) return;
+
+    contactsList.innerHTML = "";
+
+    this.onlineUsers.forEach(avatarName => {
+      if (avatarName !== authManager.currentUser?.avatarName) {
+        const contactItem = document.createElement("div");
+        contactItem.className = "contact-item online";
+        contactItem.innerHTML = `
+          <span class="status-indicator status-online"></span>
+          <span>${avatarName}</span>
+        `;
+
+        // Add click handler to start session
+        contactItem.onclick = () => {
+          const secretCode = prompt(`Enter secret code to start secure session with ${avatarName}:`);
+          if (secretCode) {
+            this.requestSession(avatarName, secretCode);
+          }
+        };
+
+        contactsList.appendChild(contactItem);
+      }
+    });
+
+    if (this.onlineUsers.length <= 1) {
+      contactsList.innerHTML = '<div class="no-contacts">No other users online</div>';
+    }
+  }
+
+  // Show chat interface
+  showChatInterface() {
+    const sessionSetup = document.getElementById("sessionSetup");
+    const activeChat = document.getElementById("activeChat");
+    const peerAvatarName = document.getElementById("peerAvatarName");
+
+    if (sessionSetup) sessionSetup.style.display = "none";
+    if (activeChat) activeChat.style.display = "block";
+    if (peerAvatarName && this.currentSession) {
+      peerAvatarName.textContent = this.currentSession.peerAvatar;
+    }
+
+    // Clear any existing system messages and add new one
+    const messagesContainer = document.getElementById("messagesContainer");
+    if (messagesContainer) {
+      const sessionInfo = this.currentSession.secretCode ?
+        ` (Code: ${this.currentSession.secretCode})` : '';
+      const methodInfo = this.currentSession.pairingMethod ?
+        ' via mutual secret code pairing' : '';
+      messagesContainer.innerHTML = `
+                <div class="system-message">
+                    <i class="fas fa-shield-alt"></i> <strong>SECURE SESSION${methodInfo.toUpperCase()}</strong> established with ${this.currentSession.peerAvatar}${sessionInfo}.<br>
+                    <small>Session ID: ${this.currentSession.sessionId} | All messages are end-to-end encrypted.</small>
+                </div>
+            `;
+    }
+
+    console.log("💬 Chat interface activated");
+  }
+
+  // End current session
+  endSession() {
+    if (this.currentSession) {
+      console.log("🔚 Ending session:", this.currentSession.sessionId);
+      this.showMessage("Session ended", "info");
+
+      // Clear session
+      this.currentSession = null;
+      chitChatCrypto.sessionKey = null;
+
+      // Return to session setup
+      document.getElementById("sessionSetup").style.display = "block";
+      document.getElementById("activeChat").style.display = "none";
+    }
+  }
+
+  showMessage(message, type = "info") {
+    showQuickToast(message, type, 3000);
+  }
+}
+
+// Global chat instance
+window.chatManager = new ChatManager();

@@ -59,6 +59,11 @@ class ChatManager {
       this.updateMessageStatus(data.messageId, "read");
     });
 
+    // Typing indicators
+    this.socket.on("user-typing", (data) => {
+      this.updateTypingIndicator(data.avatarName, data.isTyping);
+    });
+
     // Session error
     this.socket.on("session-error", (data) => {
       this.showMessage(`Session error: ${data.message}`, "error");
@@ -204,15 +209,20 @@ class ChatManager {
     const messageId =
       Date.now().toString() + Math.random().toString(36).substr(2, 9);
 
-    // Display message locally immediately
-    this.displayMessage({
+    const messageData = {
       message: message,
       messageId: messageId,
       from: authManager.currentUser.avatarName,
       timestamp: new Date(),
       isSent: true,
       status: "sent",
-    });
+    };
+
+    // Store message in history
+    this.storeMessageInHistory(messageData);
+
+    // Display message locally immediately
+    this.displayMessage(messageData);
 
     // Send to peer
     this.socket.emit("send-message", {
@@ -231,14 +241,19 @@ class ChatManager {
     );
 
     if (decryptedMessage) {
-      this.displayMessage({
+      const messageData = {
         message: decryptedMessage,
         messageId: data.messageId,
         from: data.from,
         timestamp: new Date(data.timestamp),
         isSent: false,
         status: "delivered",
-      });
+      };
+
+      // Store message in history
+      this.storeMessageInHistory(messageData);
+
+      this.displayMessage(messageData);
 
       console.log("💬 Message received:", decryptedMessage);
     } else {
@@ -268,6 +283,21 @@ class ChatManager {
       });
 
       this.showMessage("File sent securely", "success");
+
+      // Show file sent message in chat and store in history
+      const fileMessageData = {
+        message: `📎 Sent a file: ${file.name}`,
+        messageId: "file-sent-" + Date.now(),
+        from: authManager.currentUser.avatarName,
+        timestamp: new Date(),
+        isSent: true,
+        status: "sent",
+        isFile: true,
+        fileName: file.name,
+      };
+
+      this.storeMessageInHistory(fileMessageData);
+      this.displayMessage(fileMessageData);
 
       // Auto-save sent files to safe
       safeManager.saveFile({
@@ -305,8 +335,8 @@ class ChatManager {
         "success"
       );
 
-      // Show file received message in chat
-      this.displayMessage({
+      // Show file received message in chat and store in history
+      const fileMessageData = {
         message: `📎 Sent a file: ${data.fileName}`,
         messageId: "file-" + Date.now(),
         from: data.from,
@@ -315,7 +345,10 @@ class ChatManager {
         status: "delivered",
         isFile: true,
         fileName: data.fileName,
-      });
+      };
+
+      this.storeMessageInHistory(fileMessageData);
+      this.displayMessage(fileMessageData);
     } else {
       this.showMessage("Failed to decrypt received file", "error");
     }
@@ -396,29 +429,463 @@ class ChatManager {
     console.log(`👤 ${avatarName} is now ${isOnline ? "online" : "offline"}`);
   }
 
+  // Update typing indicator
+  updateTypingIndicator(avatarName, isTyping) {
+    if (!this.currentSession || avatarName !== this.currentSession.peerAvatar) {
+      return;
+    }
+
+    const typingIndicator = document.getElementById("typingIndicator");
+    if (!typingIndicator) return;
+
+    if (isTyping) {
+      typingIndicator.style.display = "block";
+      typingIndicator.innerHTML = `
+        <i class="fas fa-circle"></i>
+        <i class="fas fa-circle"></i>
+        <i class="fas fa-circle"></i>
+        ${avatarName} is typing...
+      `;
+    } else {
+      typingIndicator.style.display = "none";
+    }
+  }
+
+  // Handle typing events
+  startTyping() {
+    if (!this.currentSession || !this.socket) return;
+
+    this.socket.emit("typing-start", {
+      targetAvatar: this.currentSession.peerAvatar,
+    });
+  }
+
+  stopTyping() {
+    if (!this.currentSession || !this.socket) return;
+
+    this.socket.emit("typing-stop", {
+      targetAvatar: this.currentSession.peerAvatar,
+    });
+  }
+
+  // Setup typing detection
+  setupTypingDetection() {
+    const messageInput = document.getElementById("messageInput");
+    if (!messageInput) return;
+
+    let typingTimeout;
+
+    messageInput.addEventListener("input", () => {
+      if (!this.currentSession) return;
+
+      // Clear existing timeout
+      if (typingTimeout) {
+        clearTimeout(typingTimeout);
+      }
+
+      // Start typing indicator
+      this.startTyping();
+
+      // Set timeout to stop typing indicator
+      typingTimeout = setTimeout(() => {
+        this.stopTyping();
+      }, 1000); // Stop after 1 second of no typing
+    });
+
+    messageInput.addEventListener("blur", () => {
+      // Stop typing when input loses focus
+      if (typingTimeout) {
+        clearTimeout(typingTimeout);
+      }
+      this.stopTyping();
+    });
+  }
+
   // Show chat interface
   showChatInterface() {
     const sessionSetup = document.getElementById("sessionSetup");
     const activeChat = document.getElementById("activeChat");
     const peerAvatarName = document.getElementById("peerAvatarName");
 
-    if (sessionSetup) sessionSetup.style.display = "none";
-    if (activeChat) activeChat.style.display = "block";
-    if (peerAvatarName && this.currentSession) {
-      peerAvatarName.textContent = this.currentSession.peerAvatar;
+    if (this.currentSession) {
+      // Show active chat if session exists
+      if (sessionSetup) sessionSetup.style.display = "none";
+      if (activeChat) activeChat.style.display = "block";
+      if (peerAvatarName) {
+        peerAvatarName.textContent = this.currentSession.peerAvatar;
+      }
+
+      // Clear any existing system messages and add new one, then load history
+      const messagesContainer = document.getElementById("messagesContainer");
+      if (messagesContainer) {
+        messagesContainer.innerHTML = `
+                    <div class="system-message">
+                        <i class="fas fa-shield-alt"></i> Secure session established with ${this.currentSession.peerAvatar}. All messages are end-to-end encrypted.
+                    </div>
+                `;
+
+        // Load and display message history
+        this.loadAndDisplayMessageHistory();
+      }
+
+      // Setup typing detection
+      this.setupTypingDetection();
+
+      // Setup Safe panel toggle
+      this.setupSafePanelToggle();
+
+      // Setup session management
+      this.setupSessionManagement();
+    } else {
+      // Show session setup if no session exists
+      if (sessionSetup) sessionSetup.style.display = "block";
+      if (activeChat) activeChat.style.display = "none";
+      if (peerAvatarName) {
+        peerAvatarName.textContent = "Waiting for connection...";
+      }
     }
 
-    // Clear any existing system messages and add new one
+    console.log(
+      "💬 Chat interface activated",
+      this.currentSession ? "with active session" : "showing session setup"
+    );
+  }
+
+  // Setup Safe panel toggle functionality
+  setupSafePanelToggle() {
+    const toggleSafeBtn = document.getElementById("toggleSafeBtn");
+    const closeSafePanelBtn = document.getElementById("closeSafePanelBtn");
+    const chatSafePanel = document.getElementById("chatSafePanel");
+    const chatMain = document.querySelector(".chat-main");
+
+    if (toggleSafeBtn) {
+      toggleSafeBtn.addEventListener("click", () => {
+        if (chatSafePanel && chatMain) {
+          const isVisible = chatSafePanel.style.display !== "none";
+          chatSafePanel.style.display = isVisible ? "none" : "flex";
+          chatMain.classList.toggle("has-safe", !isVisible);
+
+          // Update button text
+          toggleSafeBtn.innerHTML = isVisible
+            ? '<i class="fas fa-vault"></i> Safe'
+            : '<i class="fas fa-times"></i> Close';
+
+          // Refresh Safe content when opening
+          if (!isVisible) {
+            this.updateChatSafeUI();
+          }
+        }
+      });
+    }
+
+    if (closeSafePanelBtn) {
+      closeSafePanelBtn.addEventListener("click", () => {
+        if (chatSafePanel && chatMain) {
+          chatSafePanel.style.display = "none";
+          chatMain.classList.remove("has-safe");
+          const toggleSafeBtn = document.getElementById("toggleSafeBtn");
+          if (toggleSafeBtn) {
+            toggleSafeBtn.innerHTML = '<i class="fas fa-vault"></i> Safe';
+          }
+        }
+      });
+    }
+  }
+
+  // Setup session management functionality
+  setupSessionManagement() {
+    const endSessionBtn = document.getElementById("endSessionBtn");
+    const clearHistoryBtn = document.getElementById("clearHistoryBtn");
+
+    if (endSessionBtn) {
+      endSessionBtn.addEventListener("click", () => {
+        this.handleEndSession();
+      });
+    }
+
+    if (clearHistoryBtn) {
+      clearHistoryBtn.addEventListener("click", () => {
+        this.handleClearHistory();
+      });
+    }
+
+    // Listen for session ended events
+    if (this.socket) {
+      this.socket.on("session-ended", (data) => {
+        this.handleSessionEnded(data);
+      });
+    }
+  }
+
+  // Handle end session button click
+  handleEndSession() {
+    if (!this.currentSession) {
+      showQuickToast("No active session to end", "warning", 3000);
+      return;
+    }
+
+    const confirmed = confirm(
+      `Are you sure you want to end the session with ${this.currentSession.peerAvatar}?`
+    );
+
+    if (!confirmed) return;
+
+    console.log(`🔚 Ending session with ${this.currentSession.peerAvatar}`);
+
+    // Notify the other user
+    this.socket.emit("end-session", {
+      targetAvatar: this.currentSession.peerAvatar,
+    });
+
+    // Clean up local session
+    this.endSessionLocally("You ended the session.");
+  }
+
+  // Handle clear history button click
+  handleClearHistory() {
+    if (!this.currentSession) {
+      showQuickToast("No active session to clear history", "warning", 3000);
+      return;
+    }
+
+    const confirmed = confirm(
+      `Are you sure you want to clear the chat history with ${this.currentSession.peerAvatar}? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    // Clear message history from localStorage
+    this.clearMessageHistory(this.currentSession.peerAvatar);
+
+    // Clear messages from UI
     const messagesContainer = document.getElementById("messagesContainer");
     if (messagesContainer) {
-      messagesContainer.innerHTML = `
-                <div class="system-message">
-                    <i class="fas fa-shield-alt"></i> Secure session established with ${this.currentSession.peerAvatar}. All messages are end-to-end encrypted.
-                </div>
-            `;
+      // Keep only the system message
+      const systemMessage = messagesContainer.querySelector(".system-message");
+      messagesContainer.innerHTML = "";
+
+      if (systemMessage) {
+        messagesContainer.appendChild(systemMessage.cloneNode(true));
+      }
     }
 
-    console.log("💬 Chat interface activated");
+    showQuickToast("Chat history cleared", "info", 3000);
+    console.log(
+      `🗑️ Chat history cleared for session with ${this.currentSession.peerAvatar}`
+    );
+  }
+
+  // Handle when session is ended (received from other user or self)
+  handleSessionEnded(data) {
+    console.log("🔚 Session ended:", data);
+    this.endSessionLocally(data.message);
+  }
+
+  // Clean up session locally
+  endSessionLocally(message) {
+    // Clear current session
+    this.currentSession = null;
+
+    // Clear crypto session key
+    if (window.chitChatCrypto) {
+      window.chitChatCrypto.sessionKey = null;
+    }
+
+    // Show session ended message
+    const messagesContainer = document.getElementById("messagesContainer");
+    if (messagesContainer) {
+      const sessionEndedMessage = document.createElement("div");
+      sessionEndedMessage.className = "system-message session-ended";
+      sessionEndedMessage.innerHTML = `
+        <i class="fas fa-times-circle"></i> ${message}
+        <br><small>You can start a new session anytime.</small>
+      `;
+      messagesContainer.appendChild(sessionEndedMessage);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    // Update UI to show session setup
+    const sessionSetup = document.getElementById("sessionSetup");
+    const activeChat = document.getElementById("activeChat");
+    const peerAvatarName = document.getElementById("peerAvatarName");
+
+    if (sessionSetup) sessionSetup.style.display = "block";
+    if (activeChat) activeChat.style.display = "none";
+    if (peerAvatarName)
+      peerAvatarName.textContent = "Waiting for connection...";
+
+    // Hide Safe panel if open
+    const chatSafePanel = document.getElementById("chatSafePanel");
+    const chatMain = document.querySelector(".chat-main");
+    if (chatSafePanel && chatMain) {
+      chatSafePanel.style.display = "none";
+      chatMain.classList.remove("has-safe");
+      const toggleSafeBtn = document.getElementById("toggleSafeBtn");
+      if (toggleSafeBtn) {
+        toggleSafeBtn.innerHTML = '<i class="fas fa-vault"></i> Safe';
+      }
+    }
+
+    showQuickToast(message, "info", 4000);
+  }
+
+  // Update Safe UI within chat interface
+  async updateChatSafeUI() {
+    const safeGrid = document.getElementById("chatSafeGrid");
+    if (!safeGrid) return;
+
+    const files = await safeManager.getAllFiles();
+
+    safeGrid.innerHTML = "";
+
+    if (files.length === 0) {
+      safeGrid.innerHTML = `
+        <div class="no-files-compact">
+          <i class="fas fa-box-open"></i>
+          <p>No secured files</p>
+        </div>
+      `;
+      return;
+    }
+
+    files.forEach((file) => {
+      const fileElement = document.createElement("div");
+      fileElement.className = "file-item-compact";
+
+      const fileIcon = safeManager.getFileIcon(file.type);
+
+      fileElement.innerHTML = `
+        <div class="file-icon-compact">${fileIcon}</div>
+        <div class="file-info-compact">
+          <div class="file-name-compact" title="${file.name}">${file.name}</div>
+          <div class="file-meta-compact">${new Date(
+            file.timestamp
+          ).toLocaleDateString()}</div>
+        </div>
+        <div class="file-actions-compact">
+          <button onclick="chatManager.downloadFileFromSafe(${
+            file.id
+          })" title="Download">
+            <i class="fas fa-download"></i>
+          </button>
+          <button onclick="chatManager.verifyFileFromSafe(${
+            file.id
+          })" title="Verify">
+            <i class="fas fa-shield-alt"></i>
+          </button>
+          <button onclick="chatManager.deleteFileFromSafe(${
+            file.id
+          })" title="Delete">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      `;
+
+      safeGrid.appendChild(fileElement);
+    });
+  }
+
+  // Safe file operations from chat interface
+  async downloadFileFromSafe(fileId) {
+    await safeManager.downloadFile(fileId);
+    showQuickToast("File downloaded from Safe", "success", 2000);
+  }
+
+  async verifyFileFromSafe(fileId) {
+    try {
+      // For now, just mark as verified since we can't verify without proper signatures
+      // In a real implementation, this would verify digital signatures
+      await safeManager.updateFileVerification(fileId, true);
+      this.updateChatSafeUI();
+      showQuickToast("File marked as verified", "success", 3000);
+    } catch (error) {
+      console.error("Error verifying file:", error);
+      showQuickToast("Failed to verify file", "error", 3000);
+    }
+  }
+
+  async deleteFileFromSafe(fileId) {
+    if (confirm("Are you sure you want to delete this file from Safe?")) {
+      await safeManager.deleteFile(fileId);
+      this.updateChatSafeUI();
+      showQuickToast("File deleted from Safe", "info", 2000);
+    }
+  }
+
+  // Message history management
+  getMessageHistoryKey(peerAvatar) {
+    return `chitchat_history_${authManager.currentUser.avatarName}_${peerAvatar}`;
+  }
+
+  storeMessageInHistory(messageData) {
+    if (!this.currentSession) return;
+
+    const historyKey = this.getMessageHistoryKey(
+      this.currentSession.peerAvatar
+    );
+    let history = this.loadMessageHistory(this.currentSession.peerAvatar);
+
+    // Add new message to history
+    history.push({
+      ...messageData,
+      timestamp: messageData.timestamp.toISOString(), // Convert to string for storage
+    });
+
+    // Keep only last 1000 messages to prevent storage bloat
+    if (history.length > 1000) {
+      history = history.slice(-1000);
+    }
+
+    localStorage.setItem(historyKey, JSON.stringify(history));
+  }
+
+  loadMessageHistory(peerAvatar) {
+    const historyKey = this.getMessageHistoryKey(peerAvatar);
+    const stored = localStorage.getItem(historyKey);
+
+    if (stored) {
+      try {
+        const history = JSON.parse(stored);
+        // Convert timestamp strings back to Date objects
+        return history.map((msg) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp),
+        }));
+      } catch (error) {
+        console.error("Error loading message history:", error);
+        return [];
+      }
+    }
+
+    return [];
+  }
+
+  loadAndDisplayMessageHistory() {
+    if (!this.currentSession) return;
+
+    const history = this.loadMessageHistory(this.currentSession.peerAvatar);
+
+    // Clear current messages except system message
+    const messagesContainer = document.getElementById("messagesContainer");
+    if (messagesContainer) {
+      // Keep the system message and add history
+      const systemMessage = messagesContainer.querySelector(".system-message");
+      messagesContainer.innerHTML = "";
+
+      if (systemMessage) {
+        messagesContainer.appendChild(systemMessage);
+      }
+
+      // Display history messages
+      history.forEach((messageData) => {
+        this.displayMessage(messageData);
+      });
+    }
+  }
+
+  clearMessageHistory(peerAvatar) {
+    const historyKey = this.getMessageHistoryKey(peerAvatar);
+    localStorage.removeItem(historyKey);
   }
 
   showMessage(message, type = "info") {

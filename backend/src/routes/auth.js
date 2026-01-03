@@ -3,9 +3,18 @@ const authController = require("../controllers/authController");
 
 const router = express.Router();
 
+// New user creation flow
+router.post("/create-new-user", authController.createNewUser);
+router.get("/get-user-email/:avatarName", authController.getUserEmail);
+
+// Existing authentication flow
 router.post("/send-otp", authController.sendOTP);
 router.post("/verify-otp", authController.verifyOTP);
+
+// Redesigned login flow
 router.post("/login", authController.avatarLogin);
+router.post("/verify-login-otp", authController.verifyLoginOTP);
+
 router.get("/debug", authController.debugState); // For debugging
 
 module.exports = router;

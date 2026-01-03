@@ -1,0 +1,936 @@
+// UI Management
+class AppManager {
+  constructor() {
+    this.currentView = "auth";
+    this.currentUser = null;
+    this.currentEmail = null;
+    this.initializeApp();
+  }
+
+  async   initializeApp() {
+    // Show loading screen first
+    this.showLoadingScreen();
+
+    // Simulate loading time for smooth UX
+    setTimeout(() => {
+      this.setupEventListeners();
+      this.hideLoadingScreen();
+
+      // Check for existing session
+      const existingUser = authManager.checkExistingSession();
+
+      if (existingUser) {
+        // User has existing session - show main interface
+        this.currentUser = existingUser;
+        this.showMainInterface();
+        chatManager.initializeSocket();
+        console.log("✅ Existing user session restored");
+      } else {
+        // No existing session - show landing page
+        this.showLandingPage();
+        console.log("🎯 New visitor - showing landing page");
+      }
+
+      console.log("🚀 GUPT App Initialized");
+    }, 1500);
+  }
+
+  // Loading screen management
+  showLoadingScreen() {
+    const loadingScreen = document.getElementById("loadingScreen");
+    const app = document.getElementById("app");
+    if (loadingScreen) loadingScreen.classList.add("active");
+    if (app) app.style.display = "none";
+  }
+
+  hideLoadingScreen() {
+    const loadingScreen = document.getElementById("loadingScreen");
+    const app = document.getElementById("app");
+    if (loadingScreen) loadingScreen.classList.remove("active");
+    if (app) app.style.display = "block";
+  }
+
+  // Show landing page with user type selection
+  showLandingPage() {
+    this.showView("landingView");
+    console.log("🏠 Landing page displayed");
+  }
+
+  // Handle new user flow
+  async handleNewUserFlow() {
+    console.log("🆕 New user selected - generating ethereal credentials");
+
+    try {
+      // Show loading
+      this.showLoading("Generating your secure ethereal credentials...");
+
+      // Get ethereal credentials
+      const etherealData = await authManager.getEtherealCredentials();
+
+      // Store ethereal data temporarily
+      this.etherealCredentials = {
+        email: etherealData.etherealEmail,
+        avatarName: etherealData.avatarName,
+        password: etherealData.password,
+        privateKey: etherealData.privateKey,
+        publicKey: etherealData.publicKey,
+      };
+
+      // Show new user setup guide
+      this.showNewUserSetup(etherealData);
+
+    } catch (error) {
+      console.error("Failed to get ethereal credentials:", error);
+      this.showMessage("Failed to generate ethereal credentials. Please try again.", "error");
+      // Fallback to existing user flow
+      this.handleExistingUserFlow();
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+  // Handle existing user flow
+  handleExistingUserFlow() {
+    console.log("🔙 Existing user selected - showing email auth");
+    this.showEmailAuth();
+  }
+
+  // Show new user setup with ethereal credentials and guide
+  showNewUserSetup(etherealData) {
+    // Create or update the new user setup UI
+    let setupDiv = document.getElementById("newUserSetup");
+    if (!setupDiv) {
+      setupDiv = document.createElement("div");
+      setupDiv.id = "newUserSetup";
+      setupDiv.className = "auth-container";
+
+      // Insert before the authView
+      const landingView = document.getElementById("landingView");
+      landingView.parentNode.insertBefore(setupDiv, landingView.nextSibling);
+    }
+
+    setupDiv.innerHTML = `
+      <div class="new-user-setup">
+        <div class="glow" style="text-align: center; margin-bottom: 25px">
+          <h2><i class="fas fa-magic"></i> Welcome to GUPT!</h2>
+          <p>Your secure ethereal credentials are ready</p>
+        </div>
+
+        <div class="credentials-highlight">
+          <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--secondary-color);">
+            <h4 style="color: var(--primary-color); margin-bottom: 10px; font-size: 14px;">🔐 Ethereal Email Credentials (for checking emails)</h4>
+            <div class="cred-item">
+              <span class="cred-label">Email:</span>
+              <span class="cred-value">${etherealData.etherealEmail}</span>
+            </div>
+            <div class="cred-item">
+              <span class="cred-label">Password:</span>
+              <span class="cred-value">${etherealData.etherealPassword}</span>
+            </div>
+            <div class="cred-item" style="margin-top: 8px;">
+              <span class="cred-label">📧 Inbox:</span>
+              <span class="cred-value">
+                <a href="${etherealData.webUrl}" target="_blank" style="color: var(--primary-color);">
+                  Open Ethereal Inbox →
+                </a>
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <h4 style="color: var(--primary-color); margin-bottom: 10px; font-size: 14px;">👤 GUPT App Credentials (for login)</h4>
+            <div class="cred-item">
+              <span class="cred-label">Avatar:</span>
+              <span class="cred-value">${etherealData.avatarName}</span>
+            </div>
+            <div class="cred-item">
+              <span class="cred-label">Password:</span>
+              <span class="cred-value">${etherealData.password}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="setup-guide">
+          <h3 style="color: var(--primary-color); margin-bottom: 20px; text-align: center;">
+            <i class="fas fa-graduation-cap"></i> Quick Setup Guide
+          </h3>
+
+          <div class="setup-step">
+            <div class="step-number">1</div>
+            <div class="step-content">
+              <h4>Login to Your Ethereal Inbox</h4>
+              <p>Use the <strong>Ethereal Email Credentials</strong> above to login at <a href="${etherealData.webUrl}" target="_blank" style="color: var(--primary-color);">ethereal.email</a> and check for emails.</p>
+            </div>
+          </div>
+
+          <div class="setup-step">
+            <div class="step-number">2</div>
+            <div class="step-content">
+              <h4>Login to GUPT App</h4>
+              <p>Use the <strong>GUPT App Credentials</strong> (Avatar + Password) to login to the GUPT application below.</p>
+            </div>
+          </div>
+
+          <div class="setup-step">
+            <div class="step-number">3</div>
+            <div class="step-content">
+              <h4>Complete Real Authentication</h4>
+              <p>Once logged in, use the "Complete Authentication" option to link your real email for full access.</p>
+            </div>
+          </div>
+
+          <div class="setup-step">
+            <div class="step-number">4</div>
+            <div class="step-content">
+              <h4>Start Secure Conversations</h4>
+              <p>Connect with other verified users using secret codes for end-to-end encrypted messaging.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="auth-form" style="margin-top: 30px;">
+          <button id="startWithEtherealBtn" class="terminal-btn" style="width: 100%; margin-bottom: 15px;">
+            <i class="fas fa-play"></i> Start Exploring GUPT
+          </button>
+
+          <button id="backToLandingBtn" class="terminal-btn" style="width: 100%; background: transparent; border: 1px solid var(--secondary-color);">
+            <i class="fas fa-arrow-left"></i> Back to Selection
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Hide landing page and show setup
+    document.getElementById("landingView").style.display = "none";
+    document.getElementById("authView").style.display = "none";
+    setupDiv.style.display = "block";
+
+    // Add event listeners
+    document.getElementById("startWithEtherealBtn")?.addEventListener("click", () => {
+      this.handleEtherealLogin();
+    });
+
+    document.getElementById("backToLandingBtn")?.addEventListener("click", () => {
+      this.showLandingPage();
+      setupDiv.style.display = "none";
+    });
+  }
+
+  // Setup global event listeners
+  setupEventListeners() {
+    // Landing page buttons
+    document.getElementById("newUserBtn")?.addEventListener("click", () => {
+      this.handleNewUserFlow();
+    });
+
+    document.getElementById("existingUserBtn")?.addEventListener("click", () => {
+      this.handleExistingUserFlow();
+    });
+
+    // Email auth form
+    document.getElementById("sendOTPBtn")?.addEventListener("click", () => {
+      this.handleSendOTP();
+    });
+
+    // OTP verification form
+    document.getElementById("verifyOTPBtn")?.addEventListener("click", () => {
+      this.handleVerifyOTP();
+    });
+
+    // Avatar login form
+    document.getElementById("avatarLoginBtn")?.addEventListener("click", () => {
+      this.handleAvatarLogin();
+    });
+
+    // Session request
+    document
+      .getElementById("requestSessionBtn")
+      ?.addEventListener("click", () => {
+        const targetAvatar = document.getElementById("targetAvatarInput").value;
+        const secretCode = document.getElementById("secretCodeInput").value;
+        if (targetAvatar && secretCode) {
+          chatManager.requestSession(targetAvatar, secretCode);
+        }
+      });
+
+    // Send message
+    document.getElementById("sendMessageBtn")?.addEventListener("click", () => {
+      const messageInput = document.getElementById("messageInput");
+      const message = messageInput.value.trim();
+      if (message) {
+        chatManager.sendMessage(message);
+        messageInput.value = "";
+      }
+    });
+
+    // File upload
+    document.getElementById("fileInput")?.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        chatManager.sendFile(file);
+      }
+    });
+
+    // Navigation
+    document
+      .getElementById("navChat")
+      ?.addEventListener("click", () => this.showChatInterface());
+    document
+      .getElementById("navSafe")
+      ?.addEventListener("click", () => this.showSafeFolder());
+    document
+      .getElementById("navLogout")
+      ?.addEventListener("click", () => this.handleLogout());
+
+    // End session button
+    document
+      .getElementById("endSessionBtn")
+      ?.addEventListener("click", () => chatManager.endSession());
+
+    // Vault modal
+    document
+      .getElementById("navSafe")
+      ?.addEventListener("click", () => this.showVaultModal());
+
+    document
+      .getElementById("closeVaultBtn")
+      ?.addEventListener("click", () => this.hideVaultModal());
+
+    document
+      .getElementById("safeModalOverlay")
+      ?.addEventListener("click", () => this.hideVaultModal());
+
+    // Enter key for messages
+    document
+      .getElementById("messageInput")
+      ?.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          document.getElementById("sendMessageBtn").click();
+        }
+      });
+
+    // Enter key for OTP input
+    document.getElementById("otpInput")?.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        this.handleVerifyOTP();
+      }
+    });
+
+    // Enter key for password input
+    document
+      .getElementById("avatarPasswordInput")
+      ?.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          this.handleAvatarLogin();
+        }
+      });
+  }
+
+  // Handle OTP sending
+  async handleSendOTP() {
+    const email = document.getElementById("emailInput").value.trim();
+
+    if (!email) {
+      this.showMessage("Please enter your email", "error");
+      return;
+    }
+
+    this.showLoading("Sending OTP to secure channel...");
+
+    try {
+      const data = await authManager.sendOTP(email);
+
+      this.showMessage(
+        "OTP sent successfully! Check your console for details.",
+        "success"
+      );
+      this.showOTPVerification();
+      // Store email for verification
+      this.currentEmail = email;
+      // For demo, auto-fill OTP from response
+      if (data.otp) {
+        document.getElementById("otpInput").value = data.otp;
+      }
+    } catch (error) {
+      console.error("Send OTP error:", error);
+      this.showMessage("Failed to send OTP: " + error.message, "error");
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+  // Handle OTP verification
+  async handleVerifyOTP() {
+    const otp = document.getElementById("otpInput").value.trim();
+
+    if (!otp) {
+      this.showMessage("Please enter the OTP", "error");
+      return;
+    }
+
+    if (!this.currentEmail) {
+      this.showMessage("Email not found. Please start over.", "error");
+      return;
+    }
+
+    this.showLoading("Verifying OTP...");
+
+    try {
+      const data = await authManager.verifyOTP(this.currentEmail, otp);
+
+      this.showMessage(
+        "OTP verified! Your secure identity has been created.",
+        "success"
+      );
+
+      // Store user data
+      this.currentUser = {
+        avatarName: data.avatarName,
+        password: data.password,
+        privateKey: data.privateKey,
+      };
+
+      // Update UI with username
+      this.updateUserInterface();
+
+      // Auto-fill login form
+      document.getElementById("avatarNameInput").value = data.avatarName;
+      document.getElementById("avatarPasswordInput").value = data.password;
+
+      this.showAvatarLogin();
+    } catch (error) {
+      console.error("Verify OTP error:", error);
+      this.showMessage("OTP verification failed: " + error.message, "error");
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+  // Handle avatar login
+  async handleAvatarLogin(avatarName, password) {
+    const avatarNameInput = document
+      .getElementById("avatarNameInput")
+      .value.trim();
+    const passwordInput = document.getElementById("avatarPasswordInput").value;
+
+    if (!avatarNameInput || !passwordInput) {
+      this.showMessage("Please enter both avatar name and password", "error");
+      return;
+    }
+
+    this.showLoading("Authenticating...");
+
+    try {
+      const result = await authManager.avatarLogin(
+        avatarNameInput,
+        passwordInput
+      );
+      if (result) {
+        this.showMessage(
+          "Secure login successful! Welcome, " + avatarNameInput,
+          "success"
+        );
+
+        // Update current user in app manager
+        this.currentUser = {
+          avatarName: result.avatarName,
+          publicKey: result.publicKey,
+          authToken: result.authToken,
+          isEthereal: result.isEthereal,
+          needsRealAuth: result.needsRealAuth,
+        };
+
+        // Update the UI with the actual username
+        this.updateUserInterface();
+
+        // Initialize socket connection for chat
+        chatManager.initializeSocket();
+
+        this.showMainInterface();
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      this.showMessage("Login failed: " + error.message, "error");
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+  // Update UI with current user information
+  updateUserInterface() {
+    if (this.currentUser && this.currentUser.avatarName) {
+      // Update current avatar display
+      const currentAvatarElement = document.getElementById("currentAvatar");
+      if (currentAvatarElement) {
+        currentAvatarElement.textContent = this.currentUser.avatarName;
+        console.log("✅ Updated username to:", this.currentUser.avatarName);
+      }
+    }
+  }
+
+  // View management methods
+  showEmailAuth() {
+    this.showView("authView");
+    document.getElementById("emailAuth").style.display = "block";
+    document.getElementById("otpVerification").style.display = "none";
+    document.getElementById("avatarLogin").style.display = "none";
+
+    // Hide ethereal containers
+    const etherealCreds = document.getElementById("etherealCredentials");
+    if (etherealCreds) etherealCreds.style.display = "none";
+
+    const etherealFlow = document.getElementById("etherealUserFlow");
+    if (etherealFlow) etherealFlow.style.display = "none";
+
+    // Hide landing and setup views
+    const landingView = document.getElementById("landingView");
+    if (landingView) landingView.style.display = "none";
+
+    const newUserSetup = document.getElementById("newUserSetup");
+    if (newUserSetup) newUserSetup.style.display = "none";
+  }
+
+  showOTPVerification() {
+    document.getElementById("emailAuth").style.display = "none";
+    document.getElementById("otpVerification").style.display = "block";
+    document.getElementById("avatarLogin").style.display = "none";
+  }
+
+  showAvatarLogin() {
+    this.showView("authView");
+    document.getElementById("emailAuth").style.display = "none";
+    document.getElementById("otpVerification").style.display = "none";
+    document.getElementById("avatarLogin").style.display = "block";
+  }
+
+  showMainInterface() {
+    this.showView("mainView");
+    this.updateUserInterface(); // Ensure username is updated
+    this.showChatInterface();
+  }
+
+  // Vault modal management
+  showVaultModal() {
+    const modal = document.getElementById("safeModal");
+    if (modal) {
+      modal.classList.add("active");
+      this.updateVaultStats();
+    }
+  }
+
+  hideVaultModal() {
+    const modal = document.getElementById("safeModal");
+    if (modal) {
+      modal.classList.remove("active");
+    }
+  }
+
+  updateVaultStats() {
+    // Update vault statistics (placeholder for now)
+    const fileCount = document.getElementById("vaultFileCount");
+    const securityStatus = document.getElementById("vaultSecurityStatus");
+
+    if (fileCount) fileCount.textContent = "0 Files";
+    if (securityStatus) securityStatus.textContent = "Secured";
+  }
+
+  showChatInterface() {
+    document.getElementById("chatContainer").style.display = "block";
+    document.getElementById("safeContainer").style.display = "none";
+    this.updateActiveNav("navChat");
+  }
+
+  showSafeFolder() {
+    // Now opens vault modal instead of separate view
+    this.showVaultModal();
+  }
+
+  showView(viewId) {
+    // Hide all views
+    const views = ["landingView", "authView", "mainView"];
+    views.forEach((view) => {
+      const element = document.getElementById(view);
+      if (element) {
+        element.classList.remove("active");
+        element.style.display = "none";
+      }
+    });
+
+    // Hide special containers
+    const specialContainers = ["newUserSetup", "etherealCredentials", "etherealUserFlow"];
+    specialContainers.forEach((container) => {
+      const element = document.getElementById(container);
+      if (element) element.style.display = "none";
+    });
+
+    // Show target view
+    const targetView = document.getElementById(viewId);
+    if (targetView) {
+      targetView.classList.add("active");
+      targetView.style.display = "block";
+    }
+    this.currentView = viewId;
+  }
+
+  updateActiveNav(activeNavId) {
+    document.querySelectorAll(".nav-btn").forEach((btn) => {
+      btn.classList.remove("active");
+    });
+    document.getElementById(activeNavId)?.classList.add("active");
+  }
+
+  showLoading(message) {
+    console.log("Loading:", message);
+    // Use the button loading utility
+    if (event?.target) {
+      showButtonLoading(event.target, message);
+    }
+    showQuickToast(message, "info", 2000);
+  }
+
+  hideLoading() {
+    // Re-enable all buttons
+    document.querySelectorAll("button").forEach((btn) => {
+      if (btn.classList.contains("button-loading")) {
+        hideButtonLoading(btn);
+      }
+    });
+  }
+
+  showMessage(message, type = "info") {
+    showQuickToast(message, type, 5000);
+  }
+
+  // Get ethereal credentials for first-time users
+  async getAndShowEtherealCredentials() {
+    try {
+      this.showLoading("Generating secure ethereal credentials...");
+
+      const etherealData = await authManager.getEtherealCredentials();
+
+      // Store ethereal data temporarily
+      this.etherealCredentials = {
+        email: etherealData.etherealEmail,
+        avatarName: etherealData.avatarName,
+        password: etherealData.password,
+        privateKey: etherealData.privateKey,
+        publicKey: etherealData.publicKey,
+      };
+
+      // Show ethereal credentials to user
+      this.showEtherealCredentialsUI(etherealData);
+
+    } catch (error) {
+      console.error("Failed to get ethereal credentials:", error);
+      this.showMessage("Failed to generate ethereal credentials. Please try again.", "error");
+      // Fallback to email auth
+      this.showEmailAuth();
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+  // Show ethereal credentials UI
+  showEtherealCredentialsUI(etherealData) {
+    // Create or update the ethereal credentials display
+    let etherealDiv = document.getElementById("etherealCredentials");
+    if (!etherealDiv) {
+      etherealDiv = document.createElement("div");
+      etherealDiv.id = "etherealCredentials";
+      etherealDiv.className = "auth-container";
+
+      // Insert after the email auth container
+      const emailAuth = document.getElementById("emailAuth");
+      emailAuth.parentNode.insertBefore(etherealDiv, emailAuth.nextSibling);
+    }
+
+    etherealDiv.innerHTML = `
+      <div class="glow" style="text-align: center; margin-bottom: 30px">
+        <h2><i class="fas fa-magic"></i> Welcome to GUPT!</h2>
+        <p>Your temporary ethereal credentials are ready:</p>
+      </div>
+
+      <div class="auth-form">
+        <div class="ethereal-info" style="background: rgba(0, 100, 255, 0.1); padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid var(--secondary-color);">
+          <h4 style="color: var(--primary-color); margin-bottom: 10px;"><i class="fas fa-key"></i> Your Ethereal Credentials</h4>
+          <p style="font-size: 14px; margin-bottom: 5px;"><strong>Email:</strong> <code style="background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px;">${etherealData.etherealEmail}</code></p>
+          <p style="font-size: 14px; margin-bottom: 5px;"><strong>Avatar:</strong> <code style="background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px;">${etherealData.avatarName}</code></p>
+          <p style="font-size: 14px; margin-bottom: 5px;"><strong>Password:</strong> <code style="background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px;">${etherealData.password}</code></p>
+          <p style="font-size: 12px; color: var(--secondary-color); margin-top: 10px;">
+            <i class="fas fa-info-circle"></i> ${etherealData.instructions}
+          </p>
+        </div>
+
+        <button id="useEtherealBtn" class="terminal-btn" style="width: 100%; margin-bottom: 15px;">
+          <i class="fas fa-sign-in-alt"></i> Use These Credentials to Login
+        </button>
+
+        <button id="realAuthBtn" class="terminal-btn" style="width: 100%; background: transparent; border: 1px solid var(--secondary-color);">
+          <i class="fas fa-envelope"></i> Use Real Email Authentication Instead
+        </button>
+      </div>
+    `;
+
+    // Hide other auth containers
+    document.getElementById("emailAuth").style.display = "none";
+    document.getElementById("otpVerification").style.display = "none";
+    document.getElementById("avatarLogin").style.display = "none";
+
+    // Show ethereal container
+    etherealDiv.style.display = "block";
+
+    // Add event listeners
+    document.getElementById("useEtherealBtn")?.addEventListener("click", () => {
+      this.handleEtherealLogin();
+    });
+
+    document.getElementById("realAuthBtn")?.addEventListener("click", () => {
+      this.showEmailAuth();
+    });
+  }
+
+  // Handle ethereal login
+  async handleEtherealLogin() {
+    if (!this.etherealCredentials) {
+      this.showMessage("Ethereal credentials not found. Please refresh.", "error");
+      return;
+    }
+
+    this.showLoading("Logging in with ethereal credentials...");
+
+    try {
+      const result = await authManager.avatarLogin(
+        this.etherealCredentials.avatarName,
+        this.etherealCredentials.password
+      );
+
+      if (result) {
+        this.currentUser = {
+          avatarName: result.avatarName,
+          publicKey: result.publicKey,
+          authToken: result.authToken,
+          isEthereal: result.isEthereal,
+          needsRealAuth: result.needsRealAuth,
+        };
+
+        this.updateUserInterface();
+        this.showEtherealUserFlow();
+      }
+    } catch (error) {
+      console.error("Ethereal login error:", error);
+      this.showMessage("Login failed: " + error.message, "error");
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+  // Show flow for ethereal users who need real authentication
+  showEtherealUserFlow() {
+    // Create or update the ethereal user flow UI
+    let etherealFlowDiv = document.getElementById("etherealUserFlow");
+    if (!etherealFlowDiv) {
+      etherealFlowDiv = document.createElement("div");
+      etherealFlowDiv.id = "etherealUserFlow";
+      etherealFlowDiv.className = "auth-container";
+
+      // Insert at the beginning of authView
+      const authView = document.getElementById("authView");
+      authView.insertBefore(etherealFlowDiv, authView.firstChild);
+    }
+
+    etherealFlowDiv.innerHTML = `
+      <div class="glow" style="text-align: center; margin-bottom: 30px">
+        <h2><i class="fas fa-shield-alt"></i> Complete Your Authentication</h2>
+        <p>You are logged in with ethereal credentials. To access full features, please authenticate with your real email:</p>
+      </div>
+
+      <div class="auth-form">
+        <div class="ethereal-status" style="background: rgba(255, 165, 0, 0.1); padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #ffa500;">
+          <h4 style="color: #ffa500; margin-bottom: 10px;"><i class="fas fa-user-clock"></i> Current Status</h4>
+          <p style="font-size: 14px; margin-bottom: 5px;"><strong>Avatar:</strong> ${this.currentUser?.avatarName || 'Unknown'}</p>
+          <p style="font-size: 14px; color: #ffa500;"><i class="fas fa-exclamation-triangle"></i> Limited access - Real email authentication required</p>
+        </div>
+
+        <input
+          type="email"
+          id="realEmailInput"
+          class="terminal-input"
+          placeholder="your-real-email@example.com"
+          style="margin-bottom: 15px;"
+        />
+
+        <button id="sendRealOTPBtn" class="terminal-btn" style="width: 100%; margin-bottom: 15px;">
+          <i class="fas fa-paper-plane"></i> Send OTP to Real Email
+        </button>
+
+        <button id="continueAsEtherealBtn" class="terminal-btn" style="width: 100%; background: transparent; border: 1px solid var(--secondary-color);">
+          <i class="fas fa-play"></i> Continue with Limited Access
+        </button>
+      </div>
+    `;
+
+    // Hide other auth containers
+    document.getElementById("emailAuth").style.display = "none";
+    document.getElementById("otpVerification").style.display = "none";
+    document.getElementById("avatarLogin").style.display = "none";
+
+    // Hide ethereal credentials if it exists
+    const etherealCreds = document.getElementById("etherealCredentials");
+    if (etherealCreds) {
+      etherealCreds.style.display = "none";
+    }
+
+    // Show ethereal flow container
+    etherealFlowDiv.style.display = "block";
+
+    // Add event listeners
+    document.getElementById("sendRealOTPBtn")?.addEventListener("click", () => {
+      this.handleSendRealOTP();
+    });
+
+    document.getElementById("continueAsEtherealBtn")?.addEventListener("click", () => {
+      this.showMainInterface();
+      chatManager.initializeSocket();
+    });
+  }
+
+  // Handle sending OTP to real email for ethereal users
+  async handleSendRealOTP() {
+    const email = document.getElementById("realEmailInput").value.trim();
+
+    if (!email) {
+      this.showMessage("Please enter your real email address", "error");
+      return;
+    }
+
+    this.showLoading("Sending OTP to your real email...");
+
+    try {
+      const response = await authManager.sendOTP(email);
+
+      if (response) {
+        this.showMessage("OTP sent! Check your email and enter it below.", "success");
+        this.currentEmail = email;
+
+        // Show OTP input for real email verification
+        this.showRealOTPVerification();
+      }
+    } catch (error) {
+      console.error("Send real OTP error:", error);
+      this.showMessage("Failed to send OTP: " + error.message, "error");
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+  // Show OTP verification for real email
+  showRealOTPVerification() {
+    // Update the ethereal flow UI to show OTP input
+    const etherealFlowDiv = document.getElementById("etherealUserFlow");
+    if (etherealFlowDiv) {
+      const authForm = etherealFlowDiv.querySelector(".auth-form");
+      if (authForm) {
+        authForm.innerHTML = `
+          <div class="ethereal-status" style="background: rgba(0, 255, 0, 0.1); padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid var(--primary-color);">
+            <h4 style="color: var(--primary-color); margin-bottom: 10px;"><i class="fas fa-check-circle"></i> OTP Sent!</h4>
+            <p style="font-size: 14px; margin-bottom: 5px;">Check your email: <strong>${this.currentEmail}</strong></p>
+            <p style="font-size: 14px; color: var(--secondary-color);">Enter the 6-digit OTP below to complete authentication.</p>
+          </div>
+
+          <input
+            type="text"
+            id="realOTPInput"
+            class="terminal-input"
+            placeholder="Enter 6-digit OTP"
+            maxlength="6"
+            style="margin-bottom: 15px; text-align: center; font-size: 18px; letter-spacing: 2px;"
+          />
+
+          <button id="verifyRealOTPBtn" class="terminal-btn" style="width: 100%; margin-bottom: 15px;">
+            <i class="fas fa-check"></i> Verify OTP & Complete Setup
+          </button>
+
+          <button id="backToRealEmailBtn" class="terminal-btn" style="width: 100%; background: transparent; border: 1px solid var(--secondary-color);">
+            <i class="fas fa-arrow-left"></i> Back to Email Input
+          </button>
+        `;
+
+        // Add event listeners
+        document.getElementById("verifyRealOTPBtn")?.addEventListener("click", () => {
+          this.handleVerifyRealOTP();
+        });
+
+        document.getElementById("backToRealEmailBtn")?.addEventListener("click", () => {
+          this.showEtherealUserFlow();
+        });
+
+        // Focus on OTP input
+        document.getElementById("realOTPInput").focus();
+      }
+    }
+  }
+
+  // Handle real OTP verification for ethereal users
+  async handleVerifyRealOTP() {
+    const otp = document.getElementById("realOTPInput").value.trim();
+
+    if (!otp) {
+      this.showMessage("Please enter the OTP", "error");
+      return;
+    }
+
+    if (!this.currentEmail) {
+      this.showMessage("Email not found. Please start over.", "error");
+      return;
+    }
+
+    this.showLoading("Verifying OTP and upgrading account...");
+
+    try {
+      const response = await authManager.verifyOTP(this.currentEmail, otp);
+
+      if (response) {
+        this.showMessage("Authentication complete! Your account has been upgraded.", "success");
+
+        // Update user data with real authentication
+        this.currentUser = {
+          avatarName: response.avatarName,
+          password: response.password,
+          privateKey: response.privateKey,
+          publicKey: response.publicKey,
+          isEthereal: false,
+          needsRealAuth: false,
+        };
+
+        // Update the stored session
+        authManager.storeSession(this.currentUser);
+
+        this.updateUserInterface();
+        this.showMainInterface();
+        chatManager.initializeSocket();
+      }
+    } catch (error) {
+      console.error("Verify real OTP error:", error);
+      this.showMessage("OTP verification failed: " + error.message, "error");
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+  handleLogout() {
+    this.currentUser = null;
+    this.currentEmail = null;
+    this.etherealCredentials = null;
+    authManager.clearSession();
+    if (chatManager.socket) {
+      chatManager.socket.disconnect();
+    }
+    this.showLandingPage();
+    this.showMessage("Secure logout completed.", "info");
+  }
+}
+
+// Initialize app when DOM is loaded
+document.addEventListener("DOMContentLoaded", () => {
+  window.appManager = new AppManager();
+});

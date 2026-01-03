@@ -63,6 +63,94 @@ class SimpleCryptoUtils {
 }
 
 const authController = {
+  // Create new user with auto-generated Ethereal email
+  async createNewUser(req, res) {
+    try {
+      console.log("🎯 Received new user creation request");
+
+      // Generate Ethereal email credentials
+      const testAccount = await emailService.createEtherealAccount();
+
+      // Generate avatar details
+      const avatarName = SimpleAvatarGenerator.generateAvatarName();
+      const tempPassword = SimpleAvatarGenerator.generateTempPassword();
+
+      // Generate key pair for user
+      const { publicKey, privateKey } = SimpleCryptoUtils.generateKeyPair();
+
+      // Create user in memory
+      const user = {
+        avatarName: avatarName,
+        password: tempPassword,
+        email: testAccount.email,
+        etherealCredentials: {
+          user: testAccount.user,
+          pass: testAccount.pass,
+        },
+        publicKey: publicKey,
+        privateKey: privateKey,
+        createdAt: new Date(),
+        isOnline: false,
+        lastSeen: new Date(),
+      };
+
+      users.set(avatarName, user);
+
+      console.log("✅ New user created successfully:", avatarName);
+      console.log("   Ethereal Email:", testAccount.email);
+
+      // Send credentials to the Ethereal email
+      const emailResult = await emailService.sendCredentialsEmail(
+        testAccount.email,
+        avatarName,
+        tempPassword,
+        testAccount.pass // Include Ethereal email password
+      );
+
+      const response = {
+        message: "Secure identity created! Credentials sent to Ethereal email.",
+        avatarName: avatarName,
+        password: tempPassword,
+        etherealEmail: testAccount.email,
+        etherealPassword: testAccount.pass, // Include for development/testing
+        emailStatus: emailResult.fallback ? "console_fallback" : "sent",
+      };
+
+      // Remove sensitive data in production
+      if (process.env.NODE_ENV === "production") {
+        delete response.password;
+        delete response.etherealPassword;
+      }
+
+      res.json(response);
+    } catch (error) {
+      console.error("❌ Create new user error:", error);
+      res.status(500).json({ error: "Failed to create new user: " + error.message });
+    }
+  },
+
+  // Get user email by avatar name
+  async getUserEmail(req, res) {
+    try {
+      const { avatarName } = req.params;
+
+      if (!avatarName) {
+        return res.status(400).json({ error: "Avatar name is required" });
+      }
+
+      const user = users.get(avatarName);
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      res.json({ email: user.email });
+    } catch (error) {
+      console.error("❌ Get user email error:", error);
+      res.status(500).json({ error: "Failed to get user email: " + error.message });
+    }
+  },
+
   // Send OTP to email
   async sendOTP(req, res) {
     try {
@@ -197,7 +285,7 @@ const authController = {
     }
   },
 
-  // Avatar login
+  // Avatar login - Step 1: Verify credentials and send OTP
   async avatarLogin(req, res) {
     try {
       console.log("👤 Received login request:", req.body.avatarName);
@@ -224,11 +312,94 @@ const authController = {
           .json({ error: "Invalid password. Please try again." });
       }
 
-      // Update user status
+      // Generate OTP and store for login verification
+      const otp = SimpleAvatarGenerator.generateOTP();
+
+      // Store login OTP (separate from registration OTP)
+      const loginOTPKey = `login_${avatarName}`;
+      otpStore.set(loginOTPKey, {
+        otp,
+        avatarName,
+        expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
+      });
+
+      console.log("🎯 Generated login OTP for:", avatarName);
+      console.log("   OTP:", otp);
+
+      // Send OTP to user's Ethereal email
+      const emailResult = await emailService.sendLoginOTPEmail(
+        user.email,
+        otp,
+        avatarName
+      );
+
+      console.log("✅ Login OTP sent for:", avatarName);
+
+      res.json({
+        message: "Credentials verified! OTP sent to your Ethereal email.",
+        avatarName: user.avatarName,
+        publicKey: user.publicKey,
+        emailStatus: emailResult.fallback ? "console_fallback" : "sent",
+      });
+    } catch (error) {
+      console.error("❌ Login error:", error);
+      res.status(500).json({ error: "Login failed: " + error.message });
+    }
+  },
+
+  // Verify login OTP - Step 2: Complete login
+  async verifyLoginOTP(req, res) {
+    try {
+      console.log("🔐 Received login OTP verification request");
+
+      const { email, avatarName, otp } = req.body;
+
+      if (!email || !avatarName || !otp) {
+        return res.status(400).json({ error: "Email, avatar name, and OTP are required" });
+      }
+
+      // Find user by avatar name (more reliable than email since emails are shared)
+      const user = users.get(avatarName);
+
+      if (!user) {
+        return res.status(400).json({ error: "User not found" });
+      }
+
+      // Verify the email matches (extra security check)
+      if (user.email !== email) {
+        return res.status(400).json({ error: "Email mismatch" });
+      }
+
+      const loginOTPKey = `login_${avatarName}`;
+      const otpRecord = otpStore.get(loginOTPKey);
+
+      if (!otpRecord) {
+        return res.status(400).json({
+          error: "No login OTP found for this user. Please try logging in again.",
+        });
+      }
+
+      if (otpRecord.expiresAt < Date.now()) {
+        otpStore.delete(loginOTPKey);
+        return res
+          .status(400)
+          .json({ error: "Login OTP has expired. Please try logging in again." });
+      }
+
+      if (otpRecord.otp !== otp) {
+        return res
+          .status(400)
+          .json({ error: "Invalid login OTP. Please check and try again." });
+      }
+
+      // Update user status - now they're fully logged in
       user.isOnline = true;
       user.lastSeen = new Date();
 
-      console.log("✅ Login successful for:", avatarName);
+      // Delete used OTP
+      otpStore.delete(loginOTPKey);
+
+      console.log("✅ Login OTP verified for:", avatarName);
 
       res.json({
         message: "Secure login successful! Welcome back, " + avatarName,
@@ -236,8 +407,8 @@ const authController = {
         publicKey: user.publicKey,
       });
     } catch (error) {
-      console.error("❌ Login error:", error);
-      res.status(500).json({ error: "Login failed: " + error.message });
+      console.error("❌ Verify login OTP error:", error);
+      res.status(500).json({ error: "Failed to verify login OTP: " + error.message });
     }
   },
 

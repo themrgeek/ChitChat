@@ -42,29 +42,45 @@ class SafeManager {
     });
   }
 
-  // Save file to safe
+  // Save file to safe (with encryption)
   async saveFile(fileData) {
     if (!this.db) await this.initializeDB();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction(["files"], "readwrite");
-      const store = transaction.objectStore("files");
+      try {
+        // Encrypt the file data before storing
+        const encryptedData = chitChatCrypto.encryptMessage(fileData.data);
 
-      const fileRecord = {
-        ...fileData,
-        timestamp: new Date(),
-        verified: false,
-      };
+        // Generate a unique encryption key for this file
+        const fileKey = chitChatCrypto.generateSessionKey();
 
-      const request = store.add(fileRecord);
+        // Encrypt the data with the file-specific key
+        const finalEncryptedData = CryptoJS.AES.encrypt(encryptedData, fileKey).toString();
 
-      request.onsuccess = () => {
-        console.log("File saved to SAFE:", fileData.name);
-        this.updateSafeUI();
-        resolve(request.result);
-      };
+        const fileRecord = {
+          ...fileData,
+          data: finalEncryptedData, // Store encrypted data
+          fileKey: fileKey, // Store the encryption key (in production, this should be encrypted with user's key)
+          timestamp: new Date(),
+          verified: false,
+          encrypted: true, // Mark as encrypted
+        };
 
-      request.onerror = () => reject(request.error);
+        const transaction = this.db.transaction(["files"], "readwrite");
+        const store = transaction.objectStore("files");
+        const request = store.add(fileRecord);
+
+        request.onsuccess = () => {
+          console.log("File encrypted and saved to SAFE:", fileData.name);
+          this.updateSafeUI();
+          resolve(request.result);
+        };
+
+        request.onerror = () => reject(request.error);
+      } catch (error) {
+        console.error("Error encrypting file:", error);
+        reject(error);
+      }
     });
   }
 
@@ -156,15 +172,42 @@ class SafeManager {
     });
   }
 
-  // Download file from safe
+  // Download file from safe (with decryption)
   async downloadFile(fileId) {
     const file = await this.getFile(fileId);
     if (!file) return;
 
-    const link = document.createElement("a");
-    link.href = `data:${file.type};base64,${file.data}`;
-    link.download = file.name;
-    link.click();
+    try {
+      let decryptedData = file.data;
+
+      // Decrypt if the file is encrypted
+      if (file.encrypted && file.fileKey) {
+        // First decrypt with file key
+        const decryptedWithFileKey = CryptoJS.AES.decrypt(file.data, file.fileKey).toString(CryptoJS.enc.Utf8);
+
+        // Then decrypt the chitChatCrypto encryption
+        decryptedData = chitChatCrypto.decryptMessage(decryptedWithFileKey);
+      }
+
+      const link = document.createElement("a");
+      link.href = `data:${file.type};base64,${decryptedData}`;
+      link.download = file.name;
+      link.click();
+
+      console.log("File decrypted and downloaded:", file.name);
+    } catch (error) {
+      console.error("Error decrypting file:", error);
+      showQuickToast("Failed to decrypt file", "error");
+    }
+  }
+
+  // Download file by index (used in chat interface)
+  async downloadFileByIndex(index) {
+    const files = await this.getAllFiles();
+    const file = files[index];
+    if (file) {
+      await this.downloadFile(file.id);
+    }
   }
 
   // Update safe folder UI
@@ -216,6 +259,74 @@ class SafeManager {
 
       safeGrid.appendChild(fileElement);
     });
+  }
+
+  // Export all safe data as ZIP
+  async exportSafe() {
+    try {
+      const files = await this.getAllFiles();
+
+      // Create a new JSZip instance
+      const zip = new JSZip();
+
+      // Add metadata file
+      const metadata = {
+        exportDate: new Date().toISOString(),
+        totalFiles: files.length,
+        version: "1.0",
+        description: "ChitChat Safe Export - Encrypted Files"
+      };
+      zip.file("metadata.json", JSON.stringify(metadata, null, 2));
+
+      // Add each file to the ZIP
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileName = `file_${i + 1}_${file.name || 'unnamed'}`;
+        const fileData = file.data; // This is already base64 encoded
+
+        zip.file(fileName, fileData, { base64: true });
+      }
+
+      // Generate ZIP file
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+
+      // Download the ZIP file
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(zipBlob);
+      link.download = `chitchat_safe_export_${new Date().toISOString().split('T')[0]}.zip`;
+      link.click();
+
+      showQuickToast(`Safe exported successfully (${files.length} files)`, "success", 3000);
+    } catch (error) {
+      console.error("Export error:", error);
+      showQuickToast("Failed to export Safe", "error", 3000);
+    }
+  }
+
+  // Verify all files in safe
+  async verifyAllFiles() {
+    try {
+      const files = await this.getAllFiles();
+      let verifiedCount = 0;
+      let failedCount = 0;
+
+      for (const file of files) {
+        if (file.from) {
+          const isValid = await this.verifyFile(file.id, file.from);
+          if (isValid) verifiedCount++;
+          else failedCount++;
+        }
+      }
+
+      showQuickToast(
+        `Verification complete: ${verifiedCount} verified, ${failedCount} failed`,
+        failedCount > 0 ? "warning" : "success",
+        4000
+      );
+    } catch (error) {
+      console.error("Bulk verification error:", error);
+      showQuickToast("Failed to verify files", "error", 3000);
+    }
   }
 
   // Get appropriate file icon

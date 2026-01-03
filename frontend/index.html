@@ -23,8 +23,171 @@
       <div class="terminal-content">
         <!-- Authentication View -->
         <div id="authView" class="view">
-          <!-- Email Authentication -->
-          <div id="emailAuth" class="auth-container">
+          <!-- User Type Selection -->
+          <div id="userTypeSelection" class="auth-container">
+            <div class="glow" style="text-align: center; margin-bottom: 30px">
+              <h1><i class="fas fa-user-secret"></i> ChitChat</h1>
+              <p>Fully Un-traceable Secure Messaging</p>
+            </div>
+
+            <div class="auth-form">
+              <h3><i class="fas fa-question-circle"></i> Choose Your Path</h3>
+              <p
+                style="
+                  color: var(--secondary-color);
+                  margin-bottom: 20px;
+                  font-size: 14px;
+                "
+              >
+                Select how you'd like to proceed with your secure identity
+              </p>
+              <button
+                id="newUserBtn"
+                class="terminal-btn"
+                style="margin-bottom: 10px"
+              >
+                <i class="fas fa-user-plus"></i> NEW USER - Create Identity
+              </button>
+              <button id="existingUserBtn" class="terminal-btn">
+                <i class="fas fa-sign-in-alt"></i> EXISTING USER - Login
+              </button>
+              <div
+                id="userTypeStatus"
+                class="status-message"
+                style="display: none"
+              ></div>
+            </div>
+          </div>
+
+          <!-- New User Setup -->
+          <div id="newUserSetup" class="auth-container" style="display: none">
+            <div class="glow" style="text-align: center; margin-bottom: 30px">
+              <h2><i class="fas fa-magic"></i> Creating Your Identity</h2>
+              <p>Generating secure credentials...</p>
+            </div>
+
+            <div class="auth-form">
+              <div id="newUserContent">
+                <div class="status-message info" style="text-align: center">
+                  <i class="fas fa-cog fa-spin"></i> Generating Ethereal email
+                  credentials...
+                </div>
+              </div>
+              <button
+                id="continueToLoginBtn"
+                class="terminal-btn"
+                style="display: none"
+              >
+                <i class="fas fa-arrow-right"></i> Continue to Login
+              </button>
+              <button
+                onclick="appManager.showUserTypeSelection()"
+                class="terminal-btn"
+                style="background: transparent"
+              >
+                <i class="fas fa-arrow-left"></i> Back
+              </button>
+              <div
+                id="newUserStatus"
+                class="status-message"
+                style="display: none"
+              ></div>
+            </div>
+          </div>
+
+          <!-- Avatar Login -->
+          <div id="avatarLogin" class="auth-container" style="display: none">
+            <div class="glow" style="text-align: center; margin-bottom: 30px">
+              <h2><i class="fas fa-mask"></i> Avatar Authentication</h2>
+              <p>Enter your assigned identity credentials</p>
+            </div>
+
+            <div class="auth-form">
+              <input
+                type="text"
+                id="avatarNameInput"
+                class="terminal-input"
+                placeholder="Avatar Name"
+              />
+              <input
+                type="password"
+                id="avatarPasswordInput"
+                class="terminal-input"
+                placeholder="Temporary Password"
+              />
+              <button id="avatarLoginBtn" class="terminal-btn">
+                <i class="fas fa-sign-in-alt"></i> Authenticate
+              </button>
+              <button
+                onclick="appManager.showUserTypeSelection()"
+                class="terminal-btn"
+                style="background: transparent"
+              >
+                <i class="fas fa-arrow-left"></i> Back
+              </button>
+              <div
+                id="loginStatus"
+                class="status-message"
+                style="display: none"
+              ></div>
+            </div>
+          </div>
+
+          <!-- OTP Verification for Login -->
+          <div
+            id="loginOTPVerification"
+            class="auth-container"
+            style="display: none"
+          >
+            <div class="glow" style="text-align: center; margin-bottom: 30px">
+              <h2><i class="fas fa-shield-alt"></i> Final Authentication</h2>
+              <p>Enter the OTP sent to your Ethereal email</p>
+              <div
+                id="etherealEmailDisplay"
+                class="help-text"
+                style="
+                  font-size: 12px;
+                  color: var(--primary-color);
+                  margin-top: 10px;
+                  padding: 10px;
+                  background: rgba(0, 255, 0, 0.1);
+                  border: 1px solid var(--primary-color);
+                  border-radius: 3px;
+                "
+              >
+                <i class="fas fa-envelope"></i> OTP sent to:
+                <span id="etherealEmail"></span>
+              </div>
+            </div>
+
+            <div class="auth-form">
+              <input
+                type="text"
+                id="loginOTPInput"
+                class="terminal-input"
+                placeholder="Enter 6-digit OTP"
+                maxlength="6"
+              />
+              <button id="verifyLoginOTPBtn" class="terminal-btn">
+                <i class="fas fa-check"></i> Verify & Login
+              </button>
+              <button
+                onclick="appManager.showAvatarLogin()"
+                class="terminal-btn"
+                style="background: transparent"
+              >
+                <i class="fas fa-arrow-left"></i> Back
+              </button>
+              <div
+                id="loginOTPStatus"
+                class="status-message"
+                style="display: none"
+              ></div>
+            </div>
+          </div>
+
+          <!-- Email Authentication (Legacy - keeping for compatibility) -->
+          <div id="emailAuth" class="auth-container" style="display: none">
             <div class="glow" style="text-align: center; margin-bottom: 30px">
               <h1><i class="fas fa-user-secret"></i> ChitChat</h1>
               <p>Secure P2P Encrypted Messaging</p>
@@ -139,22 +302,80 @@
 
         <!-- Main Application View -->
         <div id="mainView" class="view" style="display: none">
+          <!-- Post-Login Options -->
+          <div id="postLoginOptions" class="auth-container">
+            <div class="glow" style="text-align: center; margin-bottom: 30px">
+              <h2><i class="fas fa-compass"></i> Choose Your Communication</h2>
+              <p>Welcome, <span id="welcomeAvatar">User</span></p>
+            </div>
+
+            <div class="auth-form">
+              <h3>
+                <i class="fas fa-hand-pointer"></i> Select Communication Type
+              </h3>
+              <button
+                id="chatOptionBtn"
+                class="terminal-btn"
+                style="margin-bottom: 10px"
+              >
+                <i class="fas fa-comments"></i> CHAT
+              </button>
+              <button
+                id="audioOptionBtn"
+                class="terminal-btn"
+                style="margin-bottom: 10px; opacity: 0.6"
+                disabled
+              >
+                <i class="fas fa-microphone"></i> AUDIO CALL
+                <span style="font-size: 12px">(Coming Soon)</span>
+              </button>
+              <button
+                id="videoOptionBtn"
+                class="terminal-btn"
+                style="opacity: 0.6"
+                disabled
+              >
+                <i class="fas fa-video"></i> VIDEO CALL
+                <span style="font-size: 12px">(Coming Soon)</span>
+              </button>
+              <button
+                onclick="appManager.showUserTypeSelection()"
+                class="terminal-btn"
+                style="background: transparent; margin-top: 20px"
+              >
+                <i class="fas fa-sign-out-alt"></i> Logout
+              </button>
+            </div>
+          </div>
+
           <!-- Navigation -->
-          <div class="app-nav">
+          <div class="app-nav" style="display: none">
             <div class="nav-user">
               <span class="status-indicator status-online"></span>
               <!-- CHANGED: Dynamic username -->
               <span id="currentAvatar">Loading your identity...</span>
             </div>
             <div class="nav-buttons">
-              <button id="navChat" class="nav-btn active">
-                <i class="fas fa-comments"></i> Chat
+              <button id="navChat" class="nav-btn active" title="Chat">
+                <i class="fas fa-comments"></i>
+                <span class="nav-label">Chat</span>
               </button>
-              <button id="navSafe" class="nav-btn">
-                <i class="fas fa-vault"></i> Safe
+              <button id="navSafe" class="nav-btn" title="Secure Vault">
+                <i class="fas fa-vault"></i>
+                <span class="nav-label">Safe</span>
               </button>
-              <button id="navLogout" class="nav-btn">
-                <i class="fas fa-sign-out-alt"></i> Logout
+              <button
+                id="navSettings"
+                class="nav-btn"
+                title="Settings"
+                style="display: none"
+              >
+                <i class="fas fa-cog"></i>
+                <span class="nav-label">Settings</span>
+              </button>
+              <button id="navLogout" class="nav-btn" title="Logout">
+                <i class="fas fa-sign-out-alt"></i>
+                <span class="nav-label">Logout</span>
               </button>
             </div>
           </div>
@@ -197,6 +418,27 @@
                   <span class="encryption-status">
                     <i class="fas fa-lock"></i> End-to-End Encrypted
                   </span>
+                  <button
+                    id="toggleSafeBtn"
+                    class="terminal-btn safe-toggle-btn"
+                    title="Toggle Safe"
+                  >
+                    <i class="fas fa-vault"></i> Safe
+                  </button>
+                  <button
+                    id="endSessionBtn"
+                    class="terminal-btn end-session-btn"
+                    title="End Session"
+                  >
+                    <i class="fas fa-times-circle"></i> End Session
+                  </button>
+                  <button
+                    id="clearHistoryBtn"
+                    class="terminal-btn clear-history-btn"
+                    title="Clear Chat History"
+                  >
+                    <i class="fas fa-trash-alt"></i> Clear History
+                  </button>
                 </div>
               </div>
 
@@ -208,6 +450,47 @@
                   </div>
                 </div>
 
+                <!-- Safe Panel (collapsible) -->
+                <div
+                  id="chatSafePanel"
+                  class="chat-safe-panel"
+                  style="display: none"
+                >
+                  <div class="safe-panel-header">
+                    <h4><i class="fas fa-vault"></i> Secure Vault</h4>
+                    <button
+                      id="closeSafePanelBtn"
+                      class="close-panel-btn"
+                      title="Close Safe"
+                    >
+                      <i class="fas fa-times"></i>
+                    </button>
+                  </div>
+                  <div class="safe-panel-content">
+                    <div class="safe-quick-actions">
+                      <button
+                        onclick="safeManager.verifyAllFiles()"
+                        class="terminal-btn small-btn"
+                      >
+                        <i class="fas fa-shield-alt"></i> Verify
+                      </button>
+                      <button
+                        onclick="safeManager.exportSafe()"
+                        class="terminal-btn small-btn"
+                      >
+                        <i class="fas fa-download"></i> Export
+                      </button>
+                    </div>
+                    <div id="chatSafeGrid" class="safe-grid-compact">
+                      <!-- Safe files will be displayed here -->
+                      <div class="no-files-compact">
+                        <i class="fas fa-box-open"></i>
+                        <p>No secured files</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div class="chat-area">
                   <div id="messagesContainer" class="messages-container">
                     <!-- Messages will appear here -->
@@ -215,6 +498,18 @@
                       <i class="fas fa-shield-alt"></i> Secure session
                       established. All messages are encrypted.
                     </div>
+                  </div>
+
+                  <!-- Typing Indicator -->
+                  <div
+                    id="typingIndicator"
+                    class="typing-indicator"
+                    style="display: none"
+                  >
+                    <i class="fas fa-circle"></i>
+                    <i class="fas fa-circle"></i>
+                    <i class="fas fa-circle"></i>
+                    Typing...
                   </div>
 
                   <div class="message-input-area">
@@ -290,6 +585,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/chat.js"></script>
     <script src="js/crypto.js"></script>
@@ -522,6 +818,310 @@
         justify-content: center;
       }
 
+      .typing-indicator {
+        padding: 8px 15px;
+        color: var(--secondary-color);
+        font-size: 0.9em;
+        font-style: italic;
+        border-bottom: 1px solid rgba(0, 255, 0, 0.1);
+      }
+
+      .typing-indicator i {
+        color: var(--primary-color);
+        animation: typing 1.4s infinite ease-in-out;
+        margin-right: 2px;
+      }
+
+      .typing-indicator i:nth-child(1) {
+        animation-delay: 0s;
+      }
+      .typing-indicator i:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .typing-indicator i:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      /* Chat Safe Panel Styles */
+      .chat-safe-panel {
+        border-left: 1px solid var(--primary-color);
+        border-right: 1px solid var(--primary-color);
+        background: rgba(0, 20, 0, 0.1);
+        display: flex;
+        flex-direction: column;
+        grid-column: 2;
+        overflow: hidden;
+      }
+
+      .safe-panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        border-bottom: 1px solid var(--primary-color);
+        background: rgba(0, 255, 0, 0.1);
+      }
+
+      .safe-panel-header h4 {
+        margin: 0;
+        font-size: 14px;
+        color: var(--primary-color);
+      }
+
+      .close-panel-btn {
+        background: transparent;
+        border: 1px solid var(--primary-color);
+        color: var(--primary-color);
+        padding: 5px 8px;
+        cursor: pointer;
+        border-radius: 3px;
+        font-size: 12px;
+      }
+
+      .close-panel-btn:hover {
+        background: var(--primary-color);
+        color: var(--terminal-bg);
+      }
+
+      .safe-panel-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+      }
+
+      .safe-quick-actions {
+        display: flex;
+        gap: 5px;
+        margin-bottom: 10px;
+      }
+
+      .small-btn {
+        padding: 6px 10px;
+        font-size: 11px;
+      }
+
+      .safe-grid-compact {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 5px;
+      }
+
+      .file-item-compact {
+        background: rgba(0, 255, 0, 0.05);
+        border: 1px solid var(--primary-color);
+        border-radius: 3px;
+        padding: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .file-icon-compact {
+        font-size: 16px;
+        color: var(--primary-color);
+        min-width: 20px;
+      }
+
+      .file-info-compact {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .file-name-compact {
+        font-size: 12px;
+        font-weight: bold;
+        color: var(--text-color);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .file-meta-compact {
+        font-size: 10px;
+        color: var(--secondary-color);
+      }
+
+      .file-actions-compact {
+        display: flex;
+        gap: 2px;
+      }
+
+      .file-actions-compact button {
+        padding: 4px 6px;
+        font-size: 10px;
+      }
+
+      .no-files-compact {
+        text-align: center;
+        padding: 20px;
+        color: var(--secondary-color);
+        font-size: 12px;
+      }
+
+      .no-files-compact i {
+        font-size: 24px;
+        margin-bottom: 8px;
+        display: block;
+      }
+
+      .safe-toggle-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+        margin-left: 10px;
+      }
+
+      .end-session-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+        margin-left: 10px;
+        background: #ff4444;
+        border-color: #ff4444;
+      }
+
+      .end-session-btn:hover {
+        background: #cc3333;
+        border-color: #cc3333;
+      }
+
+      .clear-history-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+        margin-left: 10px;
+        background: #ff8800;
+        border-color: #ff8800;
+      }
+
+      .clear-history-btn:hover {
+        background: #cc6600;
+        border-color: #cc6600;
+      }
+
+      /* Improved Navigation */
+      .nav-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 8px;
+        background: transparent;
+        border: 1px solid var(--primary-color);
+        color: var(--primary-color);
+        cursor: pointer;
+        border-radius: 3px;
+        transition: all 0.3s ease;
+        min-height: 60px;
+        position: relative;
+      }
+
+      .nav-btn:hover {
+        background: rgba(0, 255, 0, 0.1);
+        transform: translateY(-1px);
+      }
+
+      .nav-btn.active {
+        background: var(--primary-color);
+        color: var(--terminal-bg);
+        box-shadow: 0 0 10px var(--primary-color);
+      }
+
+      .nav-btn i {
+        font-size: 18px;
+        margin-bottom: 4px;
+      }
+
+      .nav-label {
+        font-size: 10px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      /* Chat layout adjustments */
+      .chat-main {
+        display: grid;
+        grid-template-columns: 200px 1fr;
+        grid-template-rows: 1fr;
+        flex: 1;
+        overflow: hidden;
+        transition: grid-template-columns 0.3s ease;
+      }
+
+      .chat-main.has-safe {
+        grid-template-columns: 200px 280px 1fr;
+      }
+
+      .contacts-panel {
+        border-right: 1px solid var(--primary-color);
+        background: rgba(0, 20, 0, 0.05);
+        display: flex;
+        flex-direction: column;
+        grid-column: 1;
+      }
+
+      .contacts-panel h4 {
+        margin: 0;
+        padding: 15px;
+        border-bottom: 1px solid var(--primary-color);
+        background: rgba(0, 255, 0, 0.1);
+        font-size: 14px;
+      }
+
+      .contacts-list {
+        flex: 1;
+        padding: 10px;
+        overflow-y: auto;
+      }
+
+      .chat-area {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        grid-column: -1; /* Last column */
+      }
+
+      .chat-main.has-safe .chat-area {
+        grid-column: 3;
+      }
+
+      /* Session ended message styling */
+      .system-message.session-ended {
+        background: linear-gradient(45deg, #ff4444, #cc3333);
+        border: 1px solid #ff6666;
+        color: white;
+        text-align: center;
+        font-weight: bold;
+      }
+
+      .system-message.session-ended i {
+        color: #ffaaaa;
+        margin-right: 5px;
+      }
+
+      .system-message.session-ended small {
+        font-weight: normal;
+        opacity: 0.9;
+      }
+
+      /* Responsive adjustments */
+      @media (max-width: 768px) {
+        .chat-safe-panel {
+          width: 250px;
+        }
+      }
+
+      @keyframes typing {
+        0%,
+        60%,
+        100% {
+          transform: translateY(0);
+          opacity: 0.4;
+        }
+        30% {
+          transform: translateY(-10px);
+          opacity: 1;
+        }
+      }
+
       /* Responsive adjustments */
       @media (max-width: 768px) {
         .app-nav {
@@ -546,17 +1146,29 @@
         const toast = document.getElementById("quickToast");
         const messageEl = document.getElementById("quickToastMessage");
 
+        if (!toast || !messageEl) {
+          console.error("❌ Toast elements not found:", {
+            toast: !!toast,
+            messageEl: !!messageEl,
+          });
+          return;
+        }
+
         messageEl.textContent = message;
         toast.className = `quick-toast ${type}`;
         toast.style.display = "block";
 
         // Auto hide
         setTimeout(() => {
-          toast.style.display = "none";
+          if (toast) toast.style.display = "none";
         }, duration);
       }
 
       function showButtonLoading(button, text = "Processing...") {
+        if (!button) {
+          console.error("❌ Button not found for loading state");
+          return;
+        }
         button.disabled = true;
         button.classList.add("button-loading");
         button.setAttribute("data-original-text", button.innerHTML);
@@ -564,6 +1176,10 @@
       }
 
       function hideButtonLoading(button) {
+        if (!button) {
+          console.error("❌ Button not found for hiding loading state");
+          return;
+        }
         button.disabled = false;
         button.classList.remove("button-loading");
         const originalText = button.getAttribute("data-original-text");
@@ -574,6 +1190,10 @@
 
       function showStatusMessage(elementId, message, type = "info") {
         const element = document.getElementById(elementId);
+        if (!element) {
+          console.error(`❌ Status message element "${elementId}" not found`);
+          return;
+        }
         element.textContent = message;
         element.className = `status-message ${type}`;
         element.style.display = "block";
@@ -581,19 +1201,23 @@
         // Auto hide success/info messages after 5 seconds
         if (type !== "error") {
           setTimeout(() => {
-            element.style.display = "none";
+            if (element) element.style.display = "none";
           }, 5000);
         }
       }
 
       function hideStatusMessage(elementId) {
         const element = document.getElementById(elementId);
-        element.style.display = "none";
+        if (element) {
+          element.style.display = "none";
+        }
       }
 
       function showChatInterface() {
-        document.getElementById("sessionSetup").style.display = "none";
-        document.getElementById("activeChat").style.display = "block";
+        const sessionSetup = document.getElementById("sessionSetup");
+        const activeChat = document.getElementById("activeChat");
+        if (sessionSetup) sessionSetup.style.display = "none";
+        if (activeChat) activeChat.style.display = "block";
       }
 
       // Initialize when page loads
@@ -622,6 +1246,14 @@
           ?.addEventListener("keypress", (e) => {
             if (e.key === "Enter") {
               document.getElementById("avatarLoginBtn").click();
+            }
+          });
+
+        document
+          .getElementById("loginOTPInput")
+          ?.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+              document.getElementById("verifyLoginOTPBtn").click();
             }
           });
       });
