@@ -1,6 +1,6 @@
 class SafeManager {
   constructor() {
-    this.dbName = "ChitChatSafe";
+    this.dbName = "DOOTSafe";
     this.dbVersion = 1;
     this.db = null;
     this.initializeDB();
@@ -49,10 +49,10 @@ class SafeManager {
     return new Promise((resolve, reject) => {
       try {
         // Encrypt the file data before storing
-        const encryptedData = chitChatCrypto.encryptMessage(fileData.data);
+        const encryptedData = dootCrypto.encryptMessage(fileData.data);
 
         // Generate a unique encryption key for this file
-        const fileKey = chitChatCrypto.generateSessionKey();
+        const fileKey = dootCrypto.generateSessionKey();
 
         // Encrypt the data with the file-specific key
         const finalEncryptedData = CryptoJS.AES.encrypt(encryptedData, fileKey).toString();
@@ -105,7 +105,7 @@ class SafeManager {
     const file = await this.getFile(fileId);
     if (!file) return false;
 
-    const isValid = chitChatCrypto.verifySignature(
+    const isValid = dootCrypto.verifySignature(
       file.data,
       file.signature,
       publicKey
@@ -185,8 +185,8 @@ class SafeManager {
         // First decrypt with file key
         const decryptedWithFileKey = CryptoJS.AES.decrypt(file.data, file.fileKey).toString(CryptoJS.enc.Utf8);
 
-        // Then decrypt the chitChatCrypto encryption
-        decryptedData = chitChatCrypto.decryptMessage(decryptedWithFileKey);
+        // Then decrypt the dootCrypto encryption
+        decryptedData = dootCrypto.decryptMessage(decryptedWithFileKey);
       }
 
       const link = document.createElement("a");
@@ -274,7 +274,7 @@ class SafeManager {
         exportDate: new Date().toISOString(),
         totalFiles: files.length,
         version: "1.0",
-        description: "ChitChat Safe Export - Encrypted Files"
+        description: "DOOT Safe Export - Encrypted Files"
       };
       zip.file("metadata.json", JSON.stringify(metadata, null, 2));
 
@@ -293,7 +293,7 @@ class SafeManager {
       // Download the ZIP file
       const link = document.createElement('a');
       link.href = URL.createObjectURL(zipBlob);
-      link.download = `chitchat_safe_export_${new Date().toISOString().split('T')[0]}.zip`;
+      link.download = `doot_safe_export_${new Date().toISOString().split('T')[0]}.zip`;
       link.click();
 
       showQuickToast(`Safe exported successfully (${files.length} files)`, "success", 3000);

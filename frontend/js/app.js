@@ -9,12 +9,67 @@ class AppManager {
 
   initializeApp() {
     this.setupEventListeners();
+    this.checkTermsAcceptance();
+    console.log("🚀 DOOT App Initialized");
+  }
+
+  // Terms modal methods
+  checkTermsAcceptance() {
+    const termsAccepted = localStorage.getItem("doot_terms_accepted");
+    if (!termsAccepted) {
+      this.showTermsModal();
+    } else {
+      this.showUserTypeSelection();
+    }
+  }
+
+  showTermsModal() {
+    const modal = document.getElementById("termsModal");
+    if (modal) {
+      modal.style.display = "flex";
+    }
+  }
+
+  hideTermsModal() {
+    const modal = document.getElementById("termsModal");
+    if (modal) {
+      modal.style.display = "none";
+    }
+  }
+
+  handleTermsCheckbox(checked) {
+    const acceptBtn = document.getElementById("acceptTermsBtn");
+    if (acceptBtn) {
+      acceptBtn.disabled = !checked;
+    }
+  }
+
+  acceptTerms() {
+    localStorage.setItem("doot_terms_accepted", "true");
+    localStorage.setItem("doot_terms_accepted_date", new Date().toISOString());
+    this.hideTermsModal();
     this.showUserTypeSelection();
-    console.log("🚀 ChitChat App Initialized");
+    showQuickToast("Terms accepted. Welcome to DOOT!", "success");
+  }
+
+  declineTerms() {
+    showQuickToast("You must accept the terms to use DOOT.", "error");
+    // Optionally redirect or disable functionality
   }
 
   // Setup global event listeners
   setupEventListeners() {
+    // Terms modal
+    document.getElementById("termsAcceptance")?.addEventListener("change", (e) => {
+      this.handleTermsCheckbox(e.target.checked);
+    });
+    document.getElementById("acceptTermsBtn")?.addEventListener("click", () => {
+      this.acceptTerms();
+    });
+    document.getElementById("declineTermsBtn")?.addEventListener("click", () => {
+      this.declineTerms();
+    });
+
     // User type selection
     document.getElementById("newUserBtn")?.addEventListener("click", () => {
       this.handleNewUser();

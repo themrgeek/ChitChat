@@ -1,4 +1,4 @@
-# GUPT - Secure P2P Encrypted Chat System
+# DOOT - Secure P2P Encrypted Chat System
 
 A secure, end-to-end encrypted peer-to-peer messaging application built with Node.js, Socket.IO, and modern web technologies.
 
@@ -10,6 +10,40 @@ A secure, end-to-end encrypted peer-to-peer messaging application built with Nod
 - 🔐 **P2P Messaging**: Direct peer-to-peer communication
 - 📁 **Secure File Storage**: Encrypted file sharing capabilities
 - 🌐 **Real-time Communication**: Instant messaging with Socket.IO
+
+## ⚖️ Usage Guidelines & Legal Compliance
+
+### ✅ Acceptable Use
+DOOT is designed for **legitimate personal and professional communication**. Permitted activities include:
+
+- Personal messaging and communication
+- Professional collaboration and document sharing
+- Educational discussions and knowledge sharing
+- Legal and compliant business activities
+- Privacy-conscious communication needs
+
+### 🚫 Prohibited Activities
+The following activities are strictly prohibited and will result in immediate account termination:
+
+- **Illegal Content**: Distribution of child exploitation material, illegal drugs, stolen intellectual property, malware, or other prohibited content
+- **Illegal Activities**: Planning, coordinating, or facilitating criminal activities
+- **Harassment**: Threats, abusive behavior, or harassment of any kind
+- **Copyright Violations**: Sharing copyrighted material without explicit permission
+- **Impersonation**: Misrepresenting identity or affiliation
+- **Spam**: Unsolicited commercial messaging or spam
+- **System Abuse**: Attempting to breach security or disrupt service
+- **Fraud**: Using the platform for fraudulent purposes
+
+### 📋 Content Guidelines
+- **File Sharing**: Maximum 10MB per file. Only permitted formats for personal/professional use
+- **Messages**: Must comply with applicable laws and regulations
+- **Copyright**: Only share content you own or have permission to distribute
+- **Privacy**: Respect others' privacy and data protection rights
+
+### 🛡️ Legal Compliance
+This service operates in compliance with applicable laws and regulations. Users are responsible for ensuring their use complies with local laws in their jurisdiction. Any illegal use may result in account termination and potential legal action.
+
+**By using DOOT, you agree to use it only for legitimate purposes and comply with our Terms of Service.**
 
 ## Tech Stack
 

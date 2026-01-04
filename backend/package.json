@@ -1,7 +1,7 @@
 {
-  "name": "chitchat-backend",
+  "name": "doot-backend",
   "version": "1.0.0",
-  "description": "P2P Encrypted Chat System",
+  "description": "DOOT - Secure P2P Encrypted Messaging System",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

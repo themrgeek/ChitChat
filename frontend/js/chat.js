@@ -118,7 +118,7 @@ class ChatManager {
     const accept = true; // Always accept for testing
 
     if (accept) {
-      const sessionKey = chitChatCrypto.generateSessionKey();
+      const sessionKey = dootCrypto.generateSessionKey();
 
       this.socket.emit("session-accept", {
         targetAvatar: data.initiatorAvatar,
@@ -132,7 +132,7 @@ class ChatManager {
         establishedAt: new Date(),
       };
 
-      chitChatCrypto.sessionKey = sessionKey;
+      dootCrypto.sessionKey = sessionKey;
 
       this.showMessage(
         `🔐 Secure session established with ${data.initiatorAvatar}`,
@@ -142,37 +142,6 @@ class ChatManager {
 
       console.log("✅ Session auto-accepted for testing");
     }
-    // const accept = confirm(
-    //   `Session request from ${data.initiatorAvatar}\n` +
-    //     `Secret Code: ${data.secretCode}\n\n` +
-    //     `Accept session?`
-    // );
-
-    // if (accept) {
-    //   const sessionKey = chitChatCrypto.generateSessionKey();
-
-    //   this.socket.emit("session-accept", {
-    //     targetAvatar: data.initiatorAvatar,
-    //     sessionKey: sessionKey,
-    //   });
-
-    //   // Store session locally immediately
-    //   this.currentSession = {
-    //     peerAvatar: data.initiatorAvatar,
-    //     sessionKey: sessionKey,
-    //     establishedAt: new Date(),
-    //   };
-
-    //   chitChatCrypto.sessionKey = sessionKey;
-
-    //   this.showMessage(
-    //     `Secure session established with ${data.initiatorAvatar}`,
-    //     "success"
-    //   );
-    //   this.showChatInterface();
-    // } else {
-    //   this.showMessage("Session request declined", "info");
-    // }
   }
 
   // Handle session establishment
@@ -183,7 +152,7 @@ class ChatManager {
       establishedAt: new Date(),
     };
 
-    chitChatCrypto.sessionKey = data.sessionKey;
+    dootCrypto.sessionKey = data.sessionKey;
 
     console.log("✅ Session established with:", data.peerAvatar);
     this.showMessage(
@@ -205,7 +174,7 @@ class ChatManager {
       return;
     }
 
-    const encryptedMessage = chitChatCrypto.encryptMessage(message);
+    const encryptedMessage = dootCrypto.encryptMessage(message);
     const messageId =
       Date.now().toString() + Math.random().toString(36).substr(2, 9);
 
@@ -236,9 +205,7 @@ class ChatManager {
 
   // Handle incoming message
   handleNewMessage(data) {
-    const decryptedMessage = chitChatCrypto.decryptMessage(
-      data.encryptedMessage
-    );
+    const decryptedMessage = dootCrypto.decryptMessage(data.encryptedMessage);
 
     if (decryptedMessage) {
       const messageData = {
@@ -271,8 +238,8 @@ class ChatManager {
     try {
       this.showMessage("Encrypting and sending file...", "info");
 
-      const fileData = await chitChatCrypto.fileToBase64(file);
-      const encryptedFileData = chitChatCrypto.encryptFile(fileData);
+      const fileData = await dootCrypto.fileToBase64(file);
+      const encryptedFileData = dootCrypto.encryptFile(fileData);
 
       this.socket.emit("send-file", {
         targetAvatar: this.currentSession.peerAvatar,
@@ -316,7 +283,7 @@ class ChatManager {
 
   // Handle received file
   handleFileReceived(data) {
-    const decryptedFileData = chitChatCrypto.decryptFile(data.fileData);
+    const decryptedFileData = dootCrypto.decryptFile(data.fileData);
 
     if (decryptedFileData) {
       // Save to safe folder
@@ -687,8 +654,8 @@ class ChatManager {
     this.currentSession = null;
 
     // Clear crypto session key
-    if (window.chitChatCrypto) {
-      window.chitChatCrypto.sessionKey = null;
+    if (window.dootCrypto) {
+      window.dootCrypto.sessionKey = null;
     }
 
     // Show session ended message
@@ -814,7 +781,7 @@ class ChatManager {
 
   // Message history management
   getMessageHistoryKey(peerAvatar) {
-    return `chitchat_history_${authManager.currentUser.avatarName}_${peerAvatar}`;
+    return `doot_history_${authManager.currentUser.avatarName}_${peerAvatar}`;
   }
 
   storeMessageInHistory(messageData) {

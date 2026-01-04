@@ -12,7 +12,7 @@ class AuthManager {
 
   // Check if user is logged in from localStorage
   checkExistingSession() {
-    const userData = localStorage.getItem("chitchat_user");
+    const userData = localStorage.getItem("doot_user");
     if (userData) {
       try {
         const user = JSON.parse(userData);
@@ -35,7 +35,7 @@ class AuthManager {
 
     // Store in localStorage
     localStorage.setItem(
-      "chitchat_user",
+      "doot_user",
       JSON.stringify({
         avatarName: userData.avatarName,
         publicKey: userData.publicKey,
@@ -50,7 +50,7 @@ class AuthManager {
   clearSession() {
     this.currentUser = null;
     this.isAuthenticated = false;
-    localStorage.removeItem("chitchat_user");
+    localStorage.removeItem("doot_user");
     console.log("✅ User session cleared");
   }
 

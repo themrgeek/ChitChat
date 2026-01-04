@@ -125,11 +125,11 @@ class EmailService {
     try {
       const mailOptions = {
         from: this.isTestAccount
-          ? '"ChitChat Security" <noreply@ethereal.email>'
+          ? '"DOOT Security" <noreply@ethereal.email>'
           : process.env.EMAIL_FROM ||
-            '"ChitChat Security" <security@chitchat.com>',
+            '"DOOT Security" <security@doot.com>',
         to: email,
-        subject: "🔒 Your ChitChat Secure OTP",
+        subject: "🔒 Your DOOT Secure OTP",
         html: emailContent,
         text: this.createTextVersion(otp, avatarName, tempPassword),
       };
@@ -185,11 +185,11 @@ class EmailService {
     try {
       const mailOptions = {
         from: this.isTestAccount
-          ? '"ChitChat Security" <noreply@ethereal.email>'
+          ? '"DOOT Security" <noreply@ethereal.email>'
           : process.env.EMAIL_FROM ||
-            '"ChitChat Security" <security@chitchat.com>',
+            '"DOOT Security" <security@doot.com>',
         to: email,
-        subject: "🔐 Your ChitChat Secure Identity Created",
+        subject: "🔐 Your DOOT Secure Identity Created",
         html: emailContent,
         text: this.createCredentialsTextVersion(
           email,
@@ -241,11 +241,11 @@ class EmailService {
     try {
       const mailOptions = {
         from: this.isTestAccount
-          ? '"ChitChat Security" <noreply@ethereal.email>'
+          ? '"DOOT Security" <noreply@ethereal.email>'
           : process.env.EMAIL_FROM ||
-            '"ChitChat Security" <security@chitchat.com>',
+            '"DOOT Security" <security@doot.com>',
         to: email,
-        subject: "🔒 ChitChat Login Verification",
+        subject: "🔒 DOOT Login Verification",
         html: emailContent,
         text: this.createLoginOTPTextVersion(otp, avatarName),
       };
@@ -371,7 +371,7 @@ class EmailService {
 <body>
     <div class="container">
         <div class="header">
-            <h1 style="color: #00ff00; text-shadow: 0 0 10px #00ff00;">🔒 ChitChat Security System</h1>
+            <h1 style="color: #00ff00; text-shadow: 0 0 10px #00ff00;">🔒 DOOT Security System</h1>
             <p>Secure P2P Encrypted Messaging</p>
         </div>
         
@@ -403,7 +403,7 @@ class EmailService {
         </div>
 
         <div class="footer">
-            <p>This is an automated message from ChitChat Secure Messaging System.</p>
+            <p>This is an automated message from DOOT Secure Messaging System.</p>
             <p>If you didn't request this, please ignore this email.</p>
             <p>🔐 End-to-End Encrypted • 🚀 P2P Communication • 💾 Local Storage</p>
         </div>
@@ -415,7 +415,7 @@ class EmailService {
 
   createTextVersion(otp, avatarName, tempPassword) {
     return `
-CHITCHAT SECURITY SYSTEM
+DOOT SECURITY SYSTEM
 ========================
 
 Your One-Time Password: ${otp}
@@ -427,7 +427,7 @@ Your Secure Identity:
 
 SECURITY NOTICE: This OTP is for your eyes only. Do not share with anyone.
 
-This is an automated message from ChitChat Secure Messaging System.
+This is an automated message from DOOT Secure Messaging System.
 If you didn't request this, please ignore this email.
         `;
   }
@@ -534,7 +534,7 @@ If you didn't request this, please ignore this email.
 <body>
     <div class="container">
         <div class="header">
-            <h1 style="color: #00ff00; text-shadow: 0 0 10px #00ff00;">🔐 ChitChat Identity Created</h1>
+            <h1 style="color: #00ff00; text-shadow: 0 0 10px #00ff00;">🔐 DOOT Identity Created</h1>
             <p>Secure P2P Encrypted Messaging</p>
         </div>
 
@@ -546,7 +546,7 @@ If you didn't request this, please ignore this email.
             <h3>🕵️ Your Secure Identity</h3>
             <p><strong>Avatar Name:</strong> ${avatarName}</p>
             <p><strong>Temporary Password:</strong> ${tempPassword}</p>
-            <p><em>Use these credentials to login to ChitChat.</em></p>
+            <p><em>Use these credentials to login to DOOT.</em></p>
         </div>
 
         ${
@@ -563,7 +563,7 @@ If you didn't request this, please ignore this email.
         }
 
         <div class="footer">
-            <p>This is an automated message from ChitChat Secure Messaging System.</p>
+            <p>This is an automated message from DOOT Secure Messaging System.</p>
             <p>🔐 End-to-End Encrypted • 🚀 P2P Communication • 💾 Local Storage</p>
         </div>
     </div>
@@ -636,7 +636,7 @@ If you didn't request this, please ignore this email.
 <body>
     <div class="container">
         <div class="header">
-            <h1 style="color: #00ff00; text-shadow: 0 0 10px #00ff00;">🔒 ChitChat Login Verification</h1>
+            <h1 style="color: #00ff00; text-shadow: 0 0 10px #00ff00;">🔒 DOOT Login Verification</h1>
             <p>Avatar: ${avatarName}</p>
         </div>
 
@@ -651,7 +651,7 @@ If you didn't request this, please ignore this email.
         </div>
 
         <div class="footer">
-            <p>This is an automated message from ChitChat Secure Messaging System.</p>
+            <p>This is an automated message from DOOT Secure Messaging System.</p>
             <p>If you didn't request this login, please ignore this email.</p>
             <p>🔐 End-to-End Encrypted • 🚀 P2P Communication • 💾 Local Storage</p>
         </div>
@@ -668,7 +668,7 @@ If you didn't request this, please ignore this email.
     etherealPassword = null
   ) {
     return `
-CHITCHAT IDENTITY CREATED
+DOOT IDENTITY CREATED
 =========================
 
 Your Secure Identity:
@@ -688,13 +688,13 @@ Your Ethereal Mailbox:
 
 SECURITY NOTICE: Keep these credentials secure. They are your access key.
 
-This is an automated message from ChitChat Secure Messaging System.
+This is an automated message from DOOT Secure Messaging System.
         `;
   }
 
   createLoginOTPTextVersion(otp, avatarName) {
     return `
-CHITCHAT LOGIN VERIFICATION
+DOOT LOGIN VERIFICATION
 ===========================
 
 Avatar: ${avatarName}
@@ -703,7 +703,7 @@ Expires in: 5 minutes
 
 SECURITY NOTICE: This OTP is for your eyes only. Do not share with anyone.
 
-This is an automated message from ChitChat Secure Messaging System.
+This is an automated message from DOOT Secure Messaging System.
 If you didn't request this login, please ignore this email.
         `;
   }

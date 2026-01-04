@@ -1,4 +1,4 @@
-class ChitChatCrypto {
+class DOOTCrypto {
   constructor() {
     this.sessionKey = null;
   }
@@ -67,4 +67,4 @@ class ChitChatCrypto {
 }
 
 // Global crypto instance
-window.chitChatCrypto = new ChitChatCrypto();
+window.dootCrypto = new DOOTCrypto();
