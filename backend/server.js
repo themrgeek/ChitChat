@@ -36,17 +36,32 @@ app.get("/", (req, res) => {
 // Socket.io setup
 setupSocket(io);
 
-// Parse PORT with validation
+// Parse PORT with enhanced validation for Railway
+console.log(`🔍 Railway Environment Debug:`);
+console.log(`   PORT: "${process.env.PORT}"`);
+console.log(`   RAILWAY_STATIC_URL: "${process.env.RAILWAY_STATIC_URL}"`);
+console.log(`   NODE_ENV: "${process.env.NODE_ENV}"`);
+
 let PORT;
 if (process.env.PORT) {
-  const parsedPort = parseInt(process.env.PORT, 10);
-  if (!isNaN(parsedPort) && parsedPort >= 0 && parsedPort <= 65535) {
-    PORT = parsedPort;
-  } else {
-    console.warn(`⚠️ Invalid PORT value: "${process.env.PORT}", using default 3000`);
+  const portValue = process.env.PORT.trim();
+
+  // Handle case where PORT might be set to a URL (Railway issue)
+  if (portValue.includes('://')) {
+    console.warn(`⚠️ PORT set to URL: "${portValue}", using default 3000`);
     PORT = 3000;
+  } else {
+    const parsedPort = parseInt(portValue, 10);
+    if (!isNaN(parsedPort) && parsedPort >= 0 && parsedPort <= 65535) {
+      PORT = parsedPort;
+      console.log(`✅ Using Railway-assigned PORT: ${PORT}`);
+    } else {
+      console.warn(`⚠️ Invalid PORT value: "${portValue}" (parsed: ${parsedPort}), using default 3000`);
+      PORT = 3000;
+    }
   }
 } else {
+  console.log(`ℹ️ No PORT specified, using default 3000`);
   PORT = 3000;
 }
 server.listen(PORT, () => {
