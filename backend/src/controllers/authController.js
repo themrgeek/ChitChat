@@ -4,6 +4,10 @@ const emailService = require("../config/emailService");
 const users = new Map();
 const otpStore = new Map();
 
+// Background email job queue
+const emailJobQueue = [];
+let isProcessingJobs = false;
+
 // Periodic cleanup of expired OTPs (every 5 minutes)
 setInterval(() => {
   const now = Date.now();
@@ -67,6 +71,49 @@ class SimpleAvatarGenerator {
   }
 }
 
+// Background email job processor
+async function processEmailJobs() {
+  if (isProcessingJobs || emailJobQueue.length === 0) return;
+
+  isProcessingJobs = true;
+  console.log(`📧 Starting email job processing (${emailJobQueue.length} jobs in queue)`);
+
+  while (emailJobQueue.length > 0) {
+    const job = emailJobQueue.shift();
+    try {
+      console.log(`📧 Processing email job for user: ${job.avatarName}`);
+
+      const result = await emailService.sendCredentialsEmail(
+        job.email,
+        job.avatarName,
+        job.tempPassword,
+        job.etherealPassword
+      );
+
+      // Update user's email status
+      const user = users.get(job.avatarName);
+      if (user) {
+        user.emailStatus = 'sent';
+        user.emailSentAt = new Date();
+        console.log(`✅ Email sent successfully for: ${job.avatarName}`);
+      }
+
+    } catch (error) {
+      console.error(`❌ Email job failed for ${job.avatarName}:`, error);
+
+      // Update user's email status on failure
+      const user = users.get(job.avatarName);
+      if (user) {
+        user.emailStatus = 'failed';
+        user.emailError = error.message;
+      }
+    }
+  }
+
+  isProcessingJobs = false;
+  console.log(`📧 Email job processing completed`);
+}
+
 // Simple crypto utils
 class SimpleCryptoUtils {
   static generateKeyPair() {
@@ -78,13 +125,13 @@ class SimpleCryptoUtils {
 }
 
 const authController = {
-  // Create new user with auto-generated Ethereal email
+  // Create new user with instant response and background email processing
   async createNewUser(req, res) {
     const startTime = Date.now();
     try {
       console.log("🎯 Received new user creation request");
 
-      // Generate Ethereal email credentials
+      // Use cached Ethereal account (instant - no network call)
       const testAccount = await emailService.createEtherealAccount();
 
       // Generate unique avatar details (with collision avoidance)
@@ -104,7 +151,7 @@ const authController = {
       // Generate key pair for user
       const { publicKey, privateKey } = SimpleCryptoUtils.generateKeyPair();
 
-      // Create user in memory
+      // Create user in memory immediately
       const user = {
         avatarName: avatarName,
         password: tempPassword,
@@ -118,28 +165,37 @@ const authController = {
         createdAt: new Date(),
         isOnline: false,
         lastSeen: new Date(),
+        emailStatus: 'queued', // Track email sending status
       };
 
       users.set(avatarName, user);
 
-      console.log("✅ New user created successfully:", avatarName);
+      console.log("✅ New user created instantly:", avatarName);
       console.log("   Ethereal Email:", testAccount.email);
 
-      // Send credentials to the Ethereal email
-      const emailResult = await emailService.sendCredentialsEmail(
-        testAccount.email,
-        avatarName,
-        tempPassword,
-        testAccount.pass // Include Ethereal email password
-      );
+      // Queue email sending job (non-blocking - happens in background)
+      emailJobQueue.push({
+        email: testAccount.email,
+        avatarName: avatarName,
+        tempPassword: tempPassword,
+        etherealPassword: testAccount.pass
+      });
+
+      // Start processing jobs in background (non-blocking)
+      setImmediate(processEmailJobs);
+
+      const responseTime = Date.now() - startTime;
+      console.log(`⚡ User creation completed instantly in ${responseTime}ms (email queued)`);
 
       const response = {
-        message: "Secure identity created! Credentials sent to Ethereal email.",
+        message: "Secure identity created instantly! Email will be sent in background.",
         avatarName: avatarName,
         password: tempPassword,
         etherealEmail: testAccount.email,
         etherealPassword: testAccount.pass, // Include for development/testing
-        emailStatus: emailResult.fallback ? "console_fallback" : "sent",
+        emailStatus: "queued",
+        estimatedEmailDelivery: "30-60 seconds",
+        responseTime: `${responseTime}ms`,
       };
 
       // Remove sensitive data in production
@@ -147,9 +203,6 @@ const authController = {
         delete response.password;
         delete response.etherealPassword;
       }
-
-      const responseTime = Date.now() - startTime;
-      console.log(`⚡ New user creation completed in ${responseTime}ms`);
 
       res.json(response);
     } catch (error) {
@@ -177,6 +230,35 @@ const authController = {
     } catch (error) {
       console.error("❌ Get user email error:", error);
       res.status(500).json({ error: "Failed to get user email: " + error.message });
+    }
+  },
+
+  // Get email status for a user
+  async getEmailStatus(req, res) {
+    try {
+      const { avatarName } = req.params;
+
+      if (!avatarName) {
+        return res.status(400).json({ error: "Avatar name is required" });
+      }
+
+      const user = users.get(avatarName);
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      res.json({
+        avatarName: user.avatarName,
+        emailStatus: user.emailStatus || 'unknown',
+        emailSentAt: user.emailSentAt || null,
+        emailError: user.emailError || null,
+        createdAt: user.createdAt,
+        estimatedDelivery: user.emailStatus === 'queued' ? '30-60 seconds' : null
+      });
+    } catch (error) {
+      console.error("❌ Get email status error:", error);
+      res.status(500).json({ error: "Failed to get email status: " + error.message });
     }
   },
 

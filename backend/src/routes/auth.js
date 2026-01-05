@@ -6,6 +6,7 @@ const router = express.Router();
 // New user creation flow
 router.post("/create-new-user", authController.createNewUser);
 router.get("/get-user-email/:avatarName", authController.getUserEmail);
+router.get("/email-status/:avatarName", authController.getEmailStatus);
 
 // Existing authentication flow
 router.post("/send-otp", authController.sendOTP);

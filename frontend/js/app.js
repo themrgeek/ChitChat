@@ -320,10 +320,21 @@ class AppManager {
       const data = await response.json();
 
       if (response.ok) {
-        this.showMessage(
-          "Secure identity created! Check your console for details.",
-          "success"
-        );
+        const emailMessage = data.emailStatus === 'queued'
+          ? `Identity created instantly! Email will be sent in ${data.estimatedEmailDelivery}.`
+          : "Secure identity created with email!";
+
+        this.showMessage(emailMessage, "success");
+
+        // Store email status for potential status checking
+        if (data.avatarName) {
+          this.currentEmailStatus = {
+            avatarName: data.avatarName,
+            status: data.emailStatus,
+            estimatedDelivery: data.estimatedEmailDelivery
+          };
+        }
+
         this.showNewUserSetup(data);
       } else {
         throw new Error(data.error || "Failed to create new user");
@@ -507,10 +518,14 @@ class AppManager {
               : ""
           }
           <p style="font-size: 12px; color: var(--secondary-color); margin-top: 15px;">
-            <i class="fas fa-info-circle"></i> Your credentials have been emailed to the Ethereal address above.
+            ${
+              data.emailStatus === 'queued'
+                ? `<i class="fas fa-clock"></i> Email is being sent in the background (${data.estimatedEmailDelivery}).<br>`
+                : '<i class="fas fa-info-circle"></i> Your credentials have been emailed to the Ethereal address above.<br>'
+            }
             ${
               data.etherealPassword
-                ? '<br><i class="fas fa-external-link-alt"></i> Access your mailbox at <a href="https://ethereal.email" target="_blank" style="color: var(--primary-color);">ethereal.email</a>'
+                ? '<i class="fas fa-external-link-alt"></i> Access your mailbox at <a href="https://ethereal.email" target="_blank" style="color: var(--primary-color);">ethereal.email</a>'
                 : ""
             }
           </p>
