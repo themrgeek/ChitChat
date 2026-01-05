@@ -68,6 +68,11 @@ class EmailService {
         console.log("📧 Continuing without verification (may still work)...");
         this.isTestAccount = true; // Assume it works
       }
+
+    } catch (error) {
+      console.error("❌ Optimized Ethereal setup failed:", error);
+      console.log("📧 Falling back to basic Ethereal setup...");
+      await this.setupBasicEtherealFallback();
     }
   }
 
