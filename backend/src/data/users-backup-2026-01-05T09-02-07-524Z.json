@@ -1,0 +1,44 @@
+{
+  "Phantom_Agent_594": {
+    "avatarName": "Phantom_Agent_594",
+    "password": "FFw5!XqCirHZ",
+    "email": "huauqrtgfywhmazn@ethereal.email",
+    "etherealCredentials": {
+      "user": "huauqrtgfywhmazn@ethereal.email",
+      "pass": "S1EgmpQm8ejYy2ZRf5"
+    },
+    "publicKey": "pub-yprvc5584m",
+    "privateKey": "priv-euw3gpsucku",
+    "createdAt": "2026-01-05T05:33:11.810Z",
+    "lastSeen": "2026-01-05T05:33:11.810Z",
+    "emailStatus": "queued"
+  },
+  "Dark_Agent_218": {
+    "avatarName": "Dark_Agent_218",
+    "password": "vuAG1hqlb5jn",
+    "email": "ttd5v5eosbem3bd4@ethereal.email",
+    "etherealCredentials": {
+      "user": "ttd5v5eosbem3bd4@ethereal.email",
+      "pass": "yhM1kD7a35p4WHC8N6"
+    },
+    "publicKey": "pub-konolj8xang",
+    "privateKey": "priv-l2cp0njilgm",
+    "createdAt": "2026-01-05T06:16:17.592Z",
+    "lastSeen": "2026-01-05T06:16:17.592Z",
+    "emailStatus": "queued"
+  },
+  "Silent_Watcher_41": {
+    "avatarName": "Silent_Watcher_41",
+    "password": "aNHtPm1eJphv",
+    "email": "omexnqey34suonkf@ethereal.email",
+    "etherealCredentials": {
+      "user": "omexnqey34suonkf@ethereal.email",
+      "pass": "CF5bVwwhea2HK4raTc"
+    },
+    "publicKey": "pub-r430yobqrhd",
+    "privateKey": "priv-jzzomjbj09",
+    "createdAt": "2026-01-05T06:22:37.840Z",
+    "lastSeen": "2026-01-05T06:22:37.840Z",
+    "emailStatus": "queued"
+  }
+}

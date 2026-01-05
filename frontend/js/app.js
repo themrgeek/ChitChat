@@ -196,6 +196,42 @@ class AppManager {
           this.handleVerifyLoginOTP();
         }
       });
+  },
+
+  // Handle sending OTP for user registration
+  async handleSendUserOTP() {
+    const email = document.getElementById("userEmailInput").value.trim();
+
+    if (!email) {
+      this.showMessage("Please enter your email address", "error");
+      return;
+    }
+
+    if (!this.tempUserData) {
+      this.showMessage("User data not found. Please start over.", "error");
+      return;
+    }
+
+    this.showLoading("Sending verification code...");
+
+    try {
+      const data = await authManager.sendOTP(email);
+
+      if (data) {
+        this.showMessage("Verification code sent! Check your email.", "success");
+
+        // Store email for verification
+        this.currentEmail = email;
+
+        // Show OTP verification for registration
+        this.showOTPVerification();
+      }
+    } catch (error) {
+      console.error("Send user OTP error:", error);
+      this.showMessage("Failed to send verification code: " + error.message, "error");
+    } finally {
+      this.hideLoading();
+    }
   }
 
   // Handle OTP sending
@@ -321,20 +357,13 @@ class AppManager {
       const data = await response.json();
 
       if (response.ok) {
-        const emailMessage = data.emailStatus === 'queued'
-          ? `Identity created! Use the credentials below to login. Email will be sent in ${data.estimatedEmailDelivery}.`
-          : "Secure identity created! Use the credentials below to login.";
+        this.showMessage("Secure identity created! Now provide your email address.", "success");
 
-        this.showMessage(emailMessage, "success");
-
-        // Store email status for potential status checking
-        if (data.avatarName) {
-          this.currentEmailStatus = {
-            avatarName: data.avatarName,
-            status: data.emailStatus,
-            estimatedDelivery: data.estimatedEmailDelivery
-          };
-        }
+        // Store user data temporarily
+        this.tempUserData = {
+          avatarName: data.avatarName,
+          password: data.password,
+        };
 
         this.showNewUserSetup(data);
       } else {
@@ -369,7 +398,7 @@ class AppManager {
       );
       if (result) {
         this.showMessage(
-          "Credentials verified! Sending OTP to your Ethereal email.",
+          "Credentials verified! Sending login verification code to your email.",
           "success"
         );
 
@@ -399,7 +428,7 @@ class AppManager {
       return;
     }
 
-    if (!this.currentEthrealEmail) {
+    if (!this.currentEmail) {
       this.showMessage("Email not found. Please start over.", "error");
       return;
     }
@@ -410,7 +439,7 @@ class AppManager {
     }
 
     console.log("🔐 Verifying login OTP:", {
-      email: this.currentEthrealEmail,
+      email: this.currentEmail,
       avatarName: this.tempUserData.avatarName,
       otp: otp,
     });
@@ -418,22 +447,9 @@ class AppManager {
     this.showLoading("Verifying OTP...");
 
     try {
-      const response = await fetch("/api/auth/verify-login-otp", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: this.currentEthrealEmail,
-          avatarName: this.tempUserData.avatarName,
-          otp: otp,
-        }),
-      });
+      const data = await authManager.verifyLoginOTP(this.currentEmail, otp);
 
-      const data = await response.json();
-      console.log("OTP verification response:", response.status, data);
-
-      if (response.ok) {
+      if (data) {
         this.showMessage(
           "Secure login successful! Welcome, " + this.tempUserData.avatarName,
           "success"
@@ -441,8 +457,9 @@ class AppManager {
 
         // Update current user in app manager
         this.currentUser = {
+          id: this.tempUserData.id,
           avatarName: this.tempUserData.avatarName,
-          publicKey: this.tempUserData.publicKey,
+          email: this.currentEmail,
         };
 
         // Update the UI with the actual username
@@ -452,12 +469,10 @@ class AppManager {
         chatManager.initializeSocket();
 
         this.showPostLoginOptions();
-      } else {
-        throw new Error(data.error || "Invalid OTP");
       }
     } catch (error) {
       console.error("Verify login OTP error:", error);
-      this.showMessage("OTP verification failed: " + error.message, "error");
+      this.showMessage("Login verification failed: " + error.message, "error");
     } finally {
       this.hideLoading();
     }
@@ -518,31 +533,29 @@ class AppManager {
           <h3>🕵️ Your Secure Identity Created!</h3>
           <p><strong>Avatar Name:</strong> ${data.avatarName}</p>
           <p><strong>Temporary Password:</strong> ${data.password}</p>
-          <p><strong>Ethereal Email:</strong> ${data.etherealEmail}</p>
-          ${
-            data.etherealPassword
-              ? `<p><strong>Ethereal Password:</strong> ${data.etherealPassword}</p>`
-              : ""
-          }
-          <div style="background: rgba(255, 165, 0, 0.1); border: 1px solid #ffaa00; padding: 10px; border-radius: 5px; margin: 15px 0;">
-            <p style="font-size: 12px; color: #ffaa00; margin: 0;">
-              <i class="fas fa-exclamation-triangle"></i> <strong>Security Note:</strong> Keep these credentials secure and do not share them.
+          <div style="background: rgba(0, 255, 0, 0.1); border: 1px solid #00ff00; padding: 15px; border-radius: 5px; margin: 15px 0;">
+            <p style="font-size: 14px; color: #00ff00; margin: 0;">
+              <i class="fas fa-envelope"></i> <strong>Next Step:</strong> Provide your email address below to complete registration.
             </p>
           </div>
-          <p style="font-size: 12px; color: var(--secondary-color); margin-top: 15px;">
-            ${
-              data.emailStatus === 'queued'
-                ? `<i class="fas fa-clock"></i> Email is being sent in the background (${data.estimatedEmailDelivery}).<br>`
-                : '<i class="fas fa-info-circle"></i> Your credentials have been emailed to the Ethereal address above.<br>'
-            }
-            ${
-              data.etherealPassword
-                ? '<i class="fas fa-external-link-alt"></i> Access your mailbox at <a href="https://ethereal.email" target="_blank" style="color: var(--primary-color);">ethereal.email</a>'
-                : ""
-            }
-          </p>
+          <div style="margin: 20px 0;">
+            <input type="email" id="userEmailInput" placeholder="Enter your email address" style="width: 80%; padding: 10px; margin: 10px 0; border: 1px solid #00ff00; background: #001100; color: #00ff00;">
+            <br>
+            <button id="sendUserOTPBtn" class="btn-primary" style="margin-top: 10px;">Send Verification Code</button>
+          </div>
+          <div style="background: rgba(255, 165, 0, 0.1); border: 1px solid #ffaa00; padding: 10px; border-radius: 5px; margin: 15px 0;">
+            <p style="font-size: 12px; color: #ffaa00; margin: 0;">
+              <i class="fas fa-exclamation-triangle"></i> <strong>Security Note:</strong> Keep these credentials secure. They will be used to login after email verification.
+            </p>
+          </div>
         </div>
       `;
+
+      // Add event listener for the send OTP button
+      const sendOTPBtn = document.getElementById("sendUserOTPBtn");
+      if (sendOTPBtn) {
+        sendOTPBtn.addEventListener("click", () => this.handleSendUserOTP());
+      }
       const continueBtn = document.getElementById("continueToLoginBtn");
       if (continueBtn) continueBtn.style.display = "block";
 
@@ -607,16 +620,16 @@ class AppManager {
         el.style.display = id === "loginOTPVerification" ? "block" : "none";
     });
 
-    // Get the ethereal email for this user
+    // Get the user's email for login verification
     if (this.tempUserData && this.tempUserData.avatarName) {
       // We'll need to fetch the email from the backend
-      await this.loadUserEtherealEmail();
+      await this.loadUserEmail();
     }
   }
 
-  async loadUserEtherealEmail() {
+  async loadUserEmail() {
     try {
-      console.log("Loading ethereal email for:", this.tempUserData.avatarName);
+      console.log("Loading email for:", this.tempUserData.avatarName);
       const response = await fetch(
         `/api/auth/get-user-email/${this.tempUserData.avatarName}`
       );
@@ -624,9 +637,8 @@ class AppManager {
       console.log("Email response:", response.status, data);
 
       if (response.ok && data.email) {
-        this.currentEthrealEmail = data.email;
-        document.getElementById("etherealEmail").textContent = data.email;
-        console.log("✅ Ethereal email loaded:", data.email);
+        this.currentEmail = data.email;
+        console.log("✅ Email loaded:", data.email);
       } else {
         console.error(
           "❌ Failed to load email:",
@@ -768,15 +780,21 @@ class AppManager {
     showQuickToast(message, type, 5000);
   }
 
-  handleLogout() {
+  async handleLogout() {
+    try {
+      await authManager.logout();
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+
     this.currentUser = null;
     this.currentEmail = null;
-    this.currentEthrealEmail = null;
     this.tempUserData = null;
-    authManager.logout();
+
     if (chatManager.socket) {
       chatManager.socket.disconnect();
     }
+
     this.showUserTypeSelection();
     this.showMessage("Secure logout completed.", "info");
   }

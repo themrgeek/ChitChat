@@ -417,9 +417,6 @@ const authController = {
     try {
       console.log("🎯 Received new user creation request");
 
-      // Use cached Ethereal account (instant - no network call)
-      const testAccount = await emailService.createEtherealAccount();
-
       // Generate unique avatar details (optimized with early collision detection)
       let avatarName;
       let attempts = 0;
@@ -453,17 +450,13 @@ const authController = {
       const user = {
         avatarName: avatarName,
         password: tempPassword,
-        email: testAccount.email,
-        etherealCredentials: {
-          user: testAccount.user,
-          pass: testAccount.pass,
-        },
+        email: null, // Email will be provided by user in OTP flow
         publicKey: publicKey,
         privateKey: privateKey,
         createdAt: new Date(),
         isOnline: false,
         lastSeen: new Date(),
-        emailStatus: 'queued', // Track email sending status
+        emailStatus: 'pending', // Track email sending status
       };
 
       users.set(avatarName, user);
@@ -472,33 +465,17 @@ const authController = {
       // Save to persistent storage immediately
       await saveUsersToFile();
 
-      console.log("✅ New user created and saved:", avatarName);
-      console.log("   Ethereal Email:", testAccount.email);
-
-      // Queue email sending job (non-blocking - happens in background)
-      emailJobQueue.push({
-        email: testAccount.email,
-        avatarName: avatarName,
-        tempPassword: tempPassword,
-        etherealPassword: testAccount.pass
-      });
-
-      // Start processing jobs in background (non-blocking)
-      setImmediate(processEmailJobs);
+      console.log("✅ New user identity created and saved:", avatarName);
 
       const responseTime = Date.now() - startTime;
-      console.log(`⚡ User creation completed instantly in ${responseTime}ms (email queued)`);
+      console.log(`⚡ User identity creation completed instantly in ${responseTime}ms`);
 
       const response = {
-        message: "Secure identity created! Here are your login credentials.",
+        message: "Secure identity created! Please provide an email address to continue.",
         avatarName: avatarName,
         password: tempPassword,
-        etherealEmail: testAccount.email,
-        etherealPassword: testAccount.pass,
-        emailStatus: "queued",
-        estimatedEmailDelivery: "30-60 seconds",
         responseTime: `${responseTime}ms`,
-        securityNote: "⚠️ Keep these credentials secure. They will also be emailed to you."
+        securityNote: "⚠️ Keep these credentials secure. They will be used to login after email verification."
       };
 
       res.json(response);
@@ -559,12 +536,13 @@ const authController = {
     }
   },
 
-  // Send OTP to email (ULTRA-FAST: Instant response + background processing)
+  // Send OTP to email (redirect to new microservice architecture)
   async sendOTP(req, res) {
-    const requestStart = Date.now();
-
     try {
-      console.log("📧 Received OTP request for:", req.body.email);
+      console.log("📧 Redirecting OTP request to new auth service");
+
+      // Import the new auth service
+      const authService = require('../services/auth/authService');
 
       const { email } = req.body;
 
@@ -578,49 +556,24 @@ const authController = {
         return res.status(400).json({ error: "Invalid email format" });
       }
 
-      // INSTANT OTP generation (no network calls)
-      const otp = SimpleAvatarGenerator.generateOTP();
-      const avatarName = SimpleAvatarGenerator.generateAvatarName();
-      const tempPassword = SimpleAvatarGenerator.generateTempPassword();
+      // Use new microservice auth service
+      const result = await authService.createOTPVerification(email, 'registration');
 
-      // Store OTP in memory instantly
-      otpStore.set(email, {
-        otp,
-        avatarName,
-        tempPassword,
-        createdAt: new Date(),
-        expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
-      });
+      if (!result.success) {
+        return res.status(500).json({ error: result.message });
+      }
 
-      console.log("🎯 Generated secure credentials instantly for:", email);
-      console.log("   OTP:", otp);
-      console.log("   Avatar:", avatarName);
-
-      // Queue email job (non-blocking - happens in background)
-      otpJobQueue.push({
-        email,
-        otp,
-        avatarName,
-        tempPassword,
-        queuedAt: new Date()
-      });
-
-      // Start background processing (fire-and-forget)
-      setImmediate(processOTPJobs);
-
-      const responseTime = Date.now() - requestStart;
+      const otpRecord = result.data.otpRecord;
 
       // INSTANT response with delivery estimate
       const response = {
         message: "OTP sent! Check your email.",
-        avatarName: avatarName,
+        avatarName: otpRecord.avatarName,
         // Include OTP for development/testing
-        otp: process.env.NODE_ENV === "production" ? undefined : otp,
-        tempPassword: process.env.NODE_ENV === "production" ? undefined : tempPassword,
+        otp: process.env.NODE_ENV === "production" ? undefined : otpRecord.otp,
+        tempPassword: process.env.NODE_ENV === "production" ? undefined : otpRecord.tempPassword,
         emailStatus: "queued",
-        estimatedDelivery: "10-30 seconds",
-        responseTime: `${responseTime}ms`,
-        jobQueuePosition: otpJobQueue.length
+        estimatedDelivery: "10-30 seconds"
       };
 
       // Remove sensitive data in production
@@ -629,23 +582,24 @@ const authController = {
         delete response.tempPassword;
       }
 
-      console.log(`⚡ OTP request completed in ${responseTime}ms (email queued)`);
+      console.log(`✅ OTP sent via new auth service for: ${email}`);
       res.json(response);
 
     } catch (error) {
       console.error("❌ Send OTP error:", error);
-      const responseTime = Date.now() - requestStart;
       res.status(500).json({
-        error: "Failed to send OTP: " + error.message,
-        responseTime: `${responseTime}ms`
+        error: "Failed to send OTP: " + error.message
       });
     }
   },
 
-  // Verify OTP and create user
+  // Verify OTP and create user (redirect to new microservice architecture)
   async verifyOTP(req, res) {
     try {
-      console.log("🔐 Received OTP verification request");
+      console.log("🔐 Redirecting OTP verification to new auth service");
+
+      // Import the new auth service
+      const authService = require('../services/auth/authService');
 
       const { email, otp } = req.body;
 
@@ -653,56 +607,35 @@ const authController = {
         return res.status(400).json({ error: "Email and OTP are required" });
       }
 
-      const otpRecord = otpStore.get(email);
+      // Use new microservice auth service
+      const otpResult = await authService.verifyOTP(email, otp, 'registration');
 
-      if (!otpRecord) {
-        return res.status(400).json({
-          error: "No OTP found for this email. Please request a new OTP.",
-        });
+      if (!otpResult.success) {
+        return res.status(400).json({ error: otpResult.message });
       }
 
-      if (otpRecord.expiresAt < Date.now()) {
-        otpStore.delete(email);
-        return res
-          .status(400)
-          .json({ error: "OTP has expired. Please request a new OTP." });
+      const { avatarName, tempPassword } = otpResult.data.otpRecord;
+
+      // Create user account using new service
+      const userResult = await authService.createUser({
+        email,
+        avatarName,
+        tempPassword,
+        etherealUser: null, // No longer using Ethereal
+        etherealPass: null
+      });
+
+      if (!userResult.success) {
+        return res.status(400).json({ error: userResult.message });
       }
 
-      if (otpRecord.otp !== otp) {
-        return res
-          .status(400)
-          .json({ error: "Invalid OTP. Please check and try again." });
-      }
-
-      // Generate key pair for user
-      const { publicKey, privateKey } = SimpleCryptoUtils.generateKeyPair();
-
-      // Create user in memory
-      const user = {
-        avatarName: otpRecord.avatarName,
-        password: otpRecord.tempPassword,
-        email: email,
-        publicKey: publicKey,
-        privateKey: privateKey,
-        createdAt: new Date(),
-        isOnline: false,
-        lastSeen: new Date(),
-      };
-
-      users.set(otpRecord.avatarName, user);
-
-      // Delete used OTP
-      otpStore.delete(email);
-
-      console.log("✅ User created successfully:", user.avatarName);
+      console.log("✅ User created successfully via new auth service:", avatarName);
 
       res.json({
-        message:
-          "OTP verified successfully! Your secure identity has been created.",
-        avatarName: user.avatarName,
-        password: user.password,
-        privateKey: privateKey,
-        publicKey: publicKey,
+        message: "OTP verified successfully! Your secure identity has been created.",
+        avatarName: userResult.data.user.avatarName,
+        password: userResult.data.user.tempPassword,
+        userId: userResult.data.user.id
       });
     } catch (error) {
       console.error("❌ Verify OTP error:", error);
@@ -715,6 +648,9 @@ const authController = {
     try {
       console.log("👤 Received login request:", req.body.avatarName);
 
+      // Import the new auth service
+      const authService = require('../services/auth/authService');
+
       const { avatarName, password } = req.body;
 
       if (!avatarName || !password) {
@@ -723,48 +659,29 @@ const authController = {
           .json({ error: "Avatar name and password are required" });
       }
 
-      const user = getUser(avatarName);
+      // Use new microservice auth service
+      const authResult = await authService.authenticateUser(avatarName, password);
 
-      if (!user) {
-        return res
-          .status(401)
-          .json({ error: "Avatar not found. Please verify your credentials." });
+      if (!authResult.success) {
+        return res.status(401).json({ error: authResult.message });
       }
 
-      if (user.password !== password) {
-        return res
-          .status(401)
-          .json({ error: "Invalid password. Please try again." });
+      const user = authResult.data.user;
+
+      // Generate login OTP using new service
+      const otpResult = await authService.createOTPVerification(user.email, 'login');
+
+      if (!otpResult.success) {
+        return res.status(500).json({ error: "Failed to send login OTP: " + otpResult.message });
       }
-
-      // Generate OTP and store for login verification
-      const otp = SimpleAvatarGenerator.generateOTP();
-
-      // Store login OTP (separate from registration OTP)
-      const loginOTPKey = `login_${avatarName}`;
-      otpStore.set(loginOTPKey, {
-        otp,
-        avatarName,
-        expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
-      });
-
-      console.log("🎯 Generated login OTP for:", avatarName);
-      console.log("   OTP:", otp);
-
-      // Send OTP to user's Ethereal email
-      const emailResult = await emailService.sendLoginOTPEmail(
-        user.email,
-        otp,
-        avatarName
-      );
 
       console.log("✅ Login OTP sent for:", avatarName);
 
       res.json({
-        message: "Credentials verified! OTP sent to your Ethereal email.",
-        avatarName: user.avatarName,
-        publicKey: user.publicKey,
-        emailStatus: emailResult.fallback ? "console_fallback" : "sent",
+        message: "Credentials verified! OTP sent to your email.",
+        avatarName: user.avatar_name,
+        userId: user.id,
+        emailStatus: "sent",
       });
     } catch (error) {
       console.error("❌ Login error:", error);
@@ -777,63 +694,52 @@ const authController = {
     try {
       console.log("🔐 Received login OTP verification request");
 
+      // Import the new auth service
+      const authService = require('../services/auth/authService');
+
       const { email, avatarName, otp } = req.body;
 
       if (!email || !avatarName || !otp) {
         return res.status(400).json({ error: "Email, avatar name, and OTP are required" });
       }
 
-      // Find user by avatar name (more reliable than email since emails are shared)
-      const user = getUser(avatarName);
+      // Verify login OTP using new service
+      const otpResult = await authService.verifyOTP(email, otp, 'login');
 
+      if (!otpResult.success) {
+        return res.status(400).json({ error: otpResult.message });
+      }
+
+      // Authenticate user again to get user data
+      const user = getUser(avatarName);
       if (!user) {
         return res.status(400).json({ error: "User not found" });
       }
 
-      // Verify the email matches (extra security check)
-      if (user.email !== email) {
-        return res.status(400).json({ error: "Email mismatch" });
-      }
-
-      const loginOTPKey = `login_${avatarName}`;
-      const otpRecord = otpStore.get(loginOTPKey);
-
-      if (!otpRecord) {
-        return res.status(400).json({
-          error: "No login OTP found for this user. Please try logging in again.",
-        });
-      }
-
-      if (otpRecord.expiresAt < Date.now()) {
-        otpStore.delete(loginOTPKey);
-        return res
-          .status(400)
-          .json({ error: "Login OTP has expired. Please try logging in again." });
-      }
-
-      if (otpRecord.otp !== otp) {
-        return res
-          .status(400)
-          .json({ error: "Invalid login OTP. Please check and try again." });
-      }
-
-      // Update user status - now they're fully logged in
-      user.isOnline = true;
-      user.lastSeen = new Date();
-
-      // Save updated user status
-      await saveUsersToFile();
-
-      // Delete used OTP
-      otpStore.delete(loginOTPKey);
+      // Create session for the user
+      const sessionResult = await authService.createSession(user.avatarName, {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        deviceType: req.headers['user-agent']?.includes('Mobile') ? 'mobile' : 'desktop'
+      });
 
       console.log("✅ Login OTP verified for:", avatarName);
 
-      res.json({
+      const response = {
         message: "Secure login successful! Welcome back, " + avatarName,
         avatarName: user.avatarName,
         publicKey: user.publicKey,
-      });
+      };
+
+      // Include session if created successfully
+      if (sessionResult.success) {
+        response.session = {
+          token: sessionResult.data.session.token,
+          expiresAt: sessionResult.data.session.expiresAt
+        };
+      }
+
+      res.json(response);
     } catch (error) {
       console.error("❌ Verify login OTP error:", error);
       res.status(500).json({ error: "Failed to verify login OTP: " + error.message });
