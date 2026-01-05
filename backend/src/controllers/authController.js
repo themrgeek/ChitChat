@@ -76,9 +76,9 @@ let expiredOTPsCleaned = 0;
 let totalUserLookups = 0;
 let avgLookupTime = 0;
 
-// Cache size limits for memory efficiency
-const MAX_USER_CACHE_SIZE = 1000;
-const MAX_EMAIL_CACHE_SIZE = 500;
+// Cache size limits for memory efficiency (reduced for Railway)
+const MAX_USER_CACHE_SIZE = 500;
+const MAX_EMAIL_CACHE_SIZE = 200;
 
 // Background job queues
 const emailJobQueue = [];
@@ -349,24 +349,30 @@ async function processEmailJobs() {
   console.log(`📧 Email job processing completed`);
 }
 
-// Background OTP processor with performance tracking
+// Background OTP processor with performance tracking and safeguards
 async function processOTPJobs() {
   if (isProcessingOTPJobs || otpJobQueue.length === 0) return;
 
+  // Prevent excessive queue buildup (max 50 jobs)
+  if (otpJobQueue.length > 50) {
+    console.warn(`⚠️ OTP queue too large (${otpJobQueue.length}), processing only first 50`);
+    otpJobQueue.splice(50); // Keep only first 50
+  }
+
   isProcessingOTPJobs = true;
   const batchStart = Date.now();
-  const batchSize = otpJobQueue.length;
+  const batchSize = Math.min(otpJobQueue.length, 10); // Process max 10 at a time
 
-  console.log(`📧 Processing ${batchSize} OTP email jobs`);
+  console.log(`📧 Processing ${batchSize} OTP email jobs (${otpJobQueue.length} remaining)`);
 
-  while (otpJobQueue.length > 0) {
+  for (let i = 0; i < batchSize && otpJobQueue.length > 0; i++) {
     const job = otpJobQueue.shift();
     const jobStart = Date.now();
 
     otpJobStats.totalJobs++;
 
     try {
-      console.log(`📧 Sending OTP to: ${job.email} (job #${otpJobStats.totalJobs})`);
+      console.log(`📧 Sending OTP to: ${job.email}`);
 
       const result = await emailService.sendOTPEmail(
         job.email,

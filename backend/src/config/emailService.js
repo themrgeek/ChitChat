@@ -30,9 +30,9 @@ class EmailService {
         port: 587,
         secure: false,
         pool: true, // Enable connection pooling
-        maxConnections: 3, // Multiple connections for faster sending
-        maxMessages: 100, // Messages per connection
-        rateLimit: 10, // Rate limiting to avoid spam filters
+        maxConnections: 2, // Reduced for Railway stability
+        maxMessages: 50, // Messages per connection
+        rateLimit: 5, // Conservative rate limiting
         auth: {
           user: user,
           pass: pass,
@@ -40,25 +40,34 @@ class EmailService {
         // Performance optimizations
         disableFileAccess: true,
         disableUrlAccess: true,
+        // Add timeout to prevent hanging
+        connectionTimeout: 10000,
+        greetingTimeout: 5000,
+        socketTimeout: 15000,
       });
 
-      // Test connection
-      await this.transporter.verify();
-      this.isTestAccount = true;
+      // Test connection with timeout
+      try {
+        await Promise.race([
+          this.transporter.verify(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Connection timeout')), 10000)
+          )
+        ]);
+        this.isTestAccount = true;
 
-      console.log("✅ Optimized Ethereal transporter ready:");
-      console.log("   👤 User:", user);
-      console.log("   🔑 Pass:", pass.substring(0, 8) + "...");
-      console.log("   🌐 Web: https://ethereal.email");
-      console.log("   ⚡ Connection pooling: Enabled");
-      console.log("   📊 Max connections: 3");
+        console.log("✅ Optimized Ethereal transporter ready:");
+        console.log("   👤 User:", user);
+        console.log("   🔑 Pass:", pass.substring(0, 8) + "...");
+        console.log("   🌐 Web: https://ethereal.email");
+        console.log("   ⚡ Connection pooling: Enabled");
+        console.log("   📊 Max connections: 2");
 
-    } catch (error) {
-      console.error("❌ Optimized Ethereal setup failed:", error);
-      console.log("📧 Falling back to basic Ethereal setup...");
-
-      // Fallback to basic setup
-      await this.setupBasicEtherealFallback();
+      } catch (verifyError) {
+        console.error("❌ Transporter verification failed:", verifyError.message);
+        console.log("📧 Continuing without verification (may still work)...");
+        this.isTestAccount = true; // Assume it works
+      }
     }
   }
 
@@ -156,8 +165,9 @@ class EmailService {
   }
 
   async sendOTPEmail(email, otp, avatarName, tempPassword) {
-    // If no transporter, use console fallback
+    // If no transporter, use console fallback immediately
     if (!this.transporter) {
+      console.log("⚠️ No email transporter available, using console fallback");
       return this.sendConsoleFallback(email, otp, avatarName, tempPassword);
     }
 
@@ -179,9 +189,15 @@ class EmailService {
         text: this.createTextVersion(otp, avatarName, tempPassword),
       };
 
-      const info = await this.transporter.sendMail(mailOptions);
+      // Add timeout to prevent hanging
+      const sendPromise = this.transporter.sendMail(mailOptions);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Email send timeout')), 15000)
+      );
 
-      console.log("✅ Email sent successfully!");
+      const info = await Promise.race([sendPromise, timeoutPromise]);
+
+      console.log("✅ OTP Email sent successfully to:", email);
 
       if (this.isTestAccount) {
         const previewUrl = nodemailer.getTestMessageUrl(info);
@@ -199,8 +215,10 @@ class EmailService {
           : null,
       };
     } catch (error) {
-      console.error("❌ Email sending failed:", error.message);
-      // Fallback to console
+      console.error("❌ OTP Email sending failed:", error.message);
+
+      // Always fallback to console for OTP (critical functionality)
+      console.log("📧 Falling back to console logging for OTP delivery");
       return this.sendConsoleFallback(email, otp, avatarName, tempPassword);
     }
   }

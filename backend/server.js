@@ -3,6 +3,7 @@ const http = require("http");
 const socketIo = require("socket.io");
 const cors = require("cors");
 const compression = require("compression");
+const rateLimit = require("express-rate-limit");
 const path = require("path");
 require("dotenv").config();
 
@@ -40,7 +41,12 @@ app.use((req, res, next) => {
   const start = Date.now();
   res.on("finish", () => {
     const duration = Date.now() - start;
-    console.log(`⚡ ${req.method} ${req.originalUrl} - ${duration}ms`);
+    // Only log slow requests (>500ms) or API calls to reduce noise
+    if (duration > 500) {
+      console.log(`🐌 SLOW: ${req.method} ${req.originalUrl} - ${duration}ms`);
+    } else if (req.originalUrl.includes('/api/')) {
+      console.log(`⚡ ${req.method} ${req.originalUrl} - ${duration}ms`);
+    }
   });
   next();
 });
@@ -61,7 +67,33 @@ app.use(
   })
 );
 
+// Rate limiting to prevent abuse
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: {
+    error: "Too many requests from this IP, please try again later.",
+    retryAfter: 15 * 60
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Stricter limits for auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 10, // Limit auth attempts
+  message: {
+    error: "Too many authentication attempts, please wait 5 minutes.",
+    retryAfter: 5 * 60
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Middleware (optimized order for performance)
+app.use(limiter); // General rate limiting
+
 app.use(
   cors({
     origin: true,
@@ -103,8 +135,38 @@ app.use(
   })
 );
 
-// Routes
-app.use("/api/auth", authRoutes);
+// Health check endpoint for Railway monitoring
+app.get("/health", (req, res) => {
+  const health = {
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: {
+      used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + "MB",
+      total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + "MB",
+      external: Math.round(process.memoryUsage().external / 1024 / 1024) + "MB"
+    },
+    version: process.version,
+    platform: process.platform,
+    environment: process.env.NODE_ENV || 'development'
+  };
+
+  // Basic health checks
+  const criticalChecks = {
+    serverRunning: true,
+    memoryOK: process.memoryUsage().heapUsed < 100 * 1024 * 1024, // < 100MB
+    uptimeOK: process.uptime() > 5 // At least 5 seconds uptime
+  };
+
+  health.checks = criticalChecks;
+
+  // Return 200 if all critical services are OK
+  const allHealthy = Object.values(criticalChecks).every(check => check === true);
+  res.status(allHealthy ? 200 : 503).json(health);
+});
+
+// Routes with rate limiting
+app.use("/api/auth", authLimiter, authRoutes); // Stricter limits for auth
 app.use("/api/chat", chatRoutes);
 
 // Serve frontend
