@@ -71,8 +71,8 @@ class AppManager {
     });
 
     // User type selection
-    document.getElementById("newUserBtn")?.addEventListener("click", () => {
-      this.handleNewUser();
+    document.getElementById("newUserBtn")?.addEventListener("click", (event) => {
+      this.handleNewUser(event);
     });
     document
       .getElementById("existingUserBtn")
@@ -306,8 +306,9 @@ class AppManager {
   }
 
   // Handle new user creation
-  async handleNewUser() {
-    this.showLoading("Creating your secure identity...");
+  async handleNewUser(event) {
+    const button = event?.target;
+    this.showLoading("Creating your secure identity...", button);
 
     try {
       const response = await fetch("/api/auth/create-new-user", {
@@ -492,20 +493,26 @@ class AppManager {
   }
 
   showNewUserSetup(data) {
-    const elements = [
-      "userTypeSelection",
-      "newUserSetup",
-      "avatarLogin",
-      "loginOTPVerification",
-    ];
-    elements.forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = id === "newUserSetup" ? "block" : "none";
-    });
+    try {
+      console.log("🎨 Setting up new user display with data:", data);
 
-    // Update the content with user data
-    const content = document.getElementById("newUserContent");
-    if (data && data.avatarName) {
+      // Ensure any loading states are cleared
+      this.hideLoading();
+
+      const elements = [
+        "userTypeSelection",
+        "newUserSetup",
+        "avatarLogin",
+        "loginOTPVerification",
+      ];
+      elements.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = id === "newUserSetup" ? "block" : "none";
+      });
+
+      // Update the content with user data
+      const content = document.getElementById("newUserContent");
+      if (data && data.avatarName) {
       content.innerHTML = `
         <div class="credentials" style="text-align: center;">
           <h3>🕵️ Your Secure Identity Created!</h3>
@@ -539,9 +546,35 @@ class AppManager {
       const continueBtn = document.getElementById("continueToLoginBtn");
       if (continueBtn) continueBtn.style.display = "block";
 
-      // Auto-fill login form
-      document.getElementById("avatarNameInput").value = data.avatarName;
-      document.getElementById("avatarPasswordInput").value = data.password;
+        // Auto-fill login form
+        const avatarInput = document.getElementById("avatarNameInput");
+        const passwordInput = document.getElementById("avatarPasswordInput");
+        if (avatarInput) avatarInput.value = data.avatarName || "";
+        if (passwordInput) passwordInput.value = data.password || "";
+
+        console.log("✅ New user setup completed successfully");
+      } else {
+        console.error("❌ Invalid data received for new user setup:", data);
+        content.innerHTML = `
+          <div class="status-message error" style="text-align: center;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>Error: Invalid response from server</p>
+            <p>Please try again</p>
+          </div>
+        `;
+      }
+    } catch (error) {
+      console.error("❌ Error in showNewUserSetup:", error);
+      const content = document.getElementById("newUserContent");
+      if (content) {
+        content.innerHTML = `
+          <div class="status-message error" style="text-align: center;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>Display error occurred</p>
+            <p>Please refresh and try again</p>
+          </div>
+        `;
+      }
     }
   }
 
@@ -710,13 +743,16 @@ class AppManager {
     document.getElementById(activeNavId)?.classList.add("active");
   }
 
-  showLoading(message) {
+  showLoading(message, buttonElement = null) {
     console.log("Loading:", message);
-    // Use the button loading utility
-    if (event?.target) {
-      showButtonLoading(event.target, message);
+
+    // Use the button loading utility if a button is provided
+    if (buttonElement) {
+      showButtonLoading(buttonElement, message);
     }
-    showQuickToast(message, "info", 2000);
+
+    // Show toast notification
+    showQuickToast(message, "info", 3000);
   }
 
   hideLoading() {
