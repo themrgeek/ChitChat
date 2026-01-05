@@ -1,4 +1,64 @@
 const emailService = require("../config/emailService");
+const fs = require("fs").promises;
+const path = require("path");
+
+// Data persistence
+const DATA_DIR = path.join(__dirname, "../data");
+const USERS_FILE = path.join(DATA_DIR, "users.json");
+
+// Ensure data directory exists
+async function ensureDataDir() {
+  try {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+  } catch (error) {
+    console.log("Data directory already exists or error:", error.message);
+  }
+}
+
+// Save users to file
+async function saveUsersToFile() {
+  try {
+    const usersData = {};
+    for (const [avatarName, user] of users.entries()) {
+      // Don't save online status as it's ephemeral
+      const userToSave = { ...user };
+      delete userToSave.isOnline; // Online status is session-based
+      usersData[avatarName] = userToSave;
+    }
+    await fs.writeFile(USERS_FILE, JSON.stringify(usersData, null, 2));
+    console.log(`💾 Saved ${users.size} users to persistent storage`);
+  } catch (error) {
+    console.error("❌ Failed to save users:", error);
+  }
+}
+
+// Load users from file
+async function loadUsersFromFile() {
+  try {
+    const data = await fs.readFile(USERS_FILE, 'utf8');
+    const usersData = JSON.parse(data);
+    let loadedCount = 0;
+
+    for (const [avatarName, userData] of Object.entries(usersData)) {
+      users.set(avatarName, {
+        ...userData,
+        isOnline: false, // Always start as offline
+        lastSeen: userData.lastSeen || new Date()
+      });
+      loadedCount++;
+    }
+
+    console.log(`📂 Loaded ${loadedCount} users from persistent storage`);
+    return loadedCount;
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      console.log("📂 No existing user data found, starting fresh");
+      return 0;
+    }
+    console.error("❌ Failed to load users:", error);
+    return 0;
+  }
+}
 
 // Ultra-fast in-memory storage with advanced caching
 const users = new Map();
@@ -144,8 +204,34 @@ setInterval(() => {
 
 }, 5 * 60 * 1000); // 5 minutes
 
-// Initialize cache on startup
-setTimeout(preloadCache, 1000); // Preload after server starts
+// Initialize data persistence and cache on startup
+async function initializeDataPersistence() {
+  await ensureDataDir();
+  const loadedCount = await loadUsersFromFile();
+  preloadCache();
+  console.log(`🎯 Data persistence initialized - ${loadedCount} users loaded`);
+}
+
+// Periodic data saving (every 2 minutes)
+setInterval(async () => {
+  await saveUsersToFile();
+}, 2 * 60 * 1000); // 2 minutes
+
+// Save on graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('🛑 Saving user data before shutdown...');
+  await saveUsersToFile();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('🛑 Saving user data before shutdown...');
+  await saveUsersToFile();
+  process.exit(0);
+});
+
+// Initialize on startup
+setTimeout(initializeDataPersistence, 500);
 
 // Simple avatar generator
 class SimpleAvatarGenerator {
@@ -352,7 +438,10 @@ const authController = {
       users.set(avatarName, user);
       addUserToCache(user); // Add to optimized cache
 
-      console.log("✅ New user created instantly:", avatarName);
+      // Save to persistent storage immediately
+      await saveUsersToFile();
+
+      console.log("✅ New user created and saved:", avatarName);
       console.log("   Ethereal Email:", testAccount.email);
 
       // Queue email sending job (non-blocking - happens in background)
@@ -701,6 +790,9 @@ const authController = {
       user.isOnline = true;
       user.lastSeen = new Date();
 
+      // Save updated user status
+      await saveUsersToFile();
+
       // Delete used OTP
       otpStore.delete(loginOTPKey);
 
@@ -740,6 +832,11 @@ const authController = {
         queueLength: otpJobQueue.length,
         processing: isProcessingOTPJobs,
         stats: otpJobStats
+      },
+      persistence: {
+        totalUsers: users.size,
+        dataFile: USERS_FILE,
+        lastSaved: new Date().toISOString()
       },
       cache: {
         userCacheSize: userCache.size,
