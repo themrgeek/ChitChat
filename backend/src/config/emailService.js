@@ -5,47 +5,65 @@ class EmailService {
     this.transporter = null;
     this.isTestAccount = false;
     this.cachedEtherealAccount = null; // Cache for Ethereal account
-    this.setupTransporter();
+    this.connectionPool = []; // Pool of transporter connections
+    this.setupOptimizedTransporter();
   }
 
-  async setupTransporter() {
-    console.log("📧 Initializing email service...");
+  async setupOptimizedTransporter() {
+    console.log("📧 Initializing optimized email service...");
 
-    // If no email config provided, use Ethereal test account
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.log(
-        "📧 No email configuration found, using Ethereal test service..."
-      );
-      await this.setupEtherealTransporter();
-      return;
-    }
+    // Always use optimized Ethereal for development/production
+    await this.setupEtherealOptimizedTransporter();
+  }
 
-    // Try configured email service
+  async setupEtherealOptimizedTransporter() {
     try {
+      console.log("📧 Setting up optimized Ethereal transporter with connection pooling...");
+
+      // Get cached account credentials
+      const user = await this.getEtherealUser();
+      const pass = await this.getEtherealPass();
+
+      // Create optimized transporter with connection pooling
       this.transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || "smtp.gmail.com",
-        port: process.env.SMTP_PORT || 587,
+        host: "smtp.ethereal.email",
+        port: 587,
         secure: false,
+        pool: true, // Enable connection pooling
+        maxConnections: 3, // Multiple connections for faster sending
+        maxMessages: 100, // Messages per connection
+        rateLimit: 10, // Rate limiting to avoid spam filters
         auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
+          user: user,
+          pass: pass,
         },
+        // Performance optimizations
+        disableFileAccess: true,
+        disableUrlAccess: true,
       });
 
-      // Verify configuration
+      // Test connection
       await this.transporter.verify();
-      console.log("✅ Email transporter configured successfully");
+      this.isTestAccount = true;
+
+      console.log("✅ Optimized Ethereal transporter ready:");
+      console.log("   👤 User:", user);
+      console.log("   🔑 Pass:", pass.substring(0, 8) + "...");
+      console.log("   🌐 Web: https://ethereal.email");
+      console.log("   ⚡ Connection pooling: Enabled");
+      console.log("   📊 Max connections: 3");
+
     } catch (error) {
-      console.log(
-        "❌ Configured email service failed, falling back to Ethereal..."
-      );
-      await this.setupEtherealTransporter();
+      console.error("❌ Optimized Ethereal setup failed:", error);
+      console.log("📧 Falling back to basic Ethereal setup...");
+
+      // Fallback to basic setup
+      await this.setupBasicEtherealFallback();
     }
   }
 
-  async setupEtherealTransporter() {
+  async setupBasicEtherealFallback() {
     try {
-      console.log("📧 Creating Ethereal test account...");
       const testAccount = await nodemailer.createTestAccount();
 
       this.transporter = nodemailer.createTransport({
@@ -58,16 +76,48 @@ class EmailService {
         },
       });
 
-      this.isTestAccount = true;
+      this.cachedEtherealAccount = {
+        user: testAccount.user,
+        pass: testAccount.pass,
+        email: testAccount.user,
+      };
 
-      console.log("📧 Ethereal test email configured:");
-      console.log("   👤 User:", testAccount.user);
-      console.log("   🔑 Pass:", testAccount.pass);
-      console.log("   🌐 Web: https://ethereal.email");
+      this.isTestAccount = true;
+      console.log("✅ Basic Ethereal fallback ready");
     } catch (error) {
-      console.log("❌ Ethereal failed, using console-only mode...");
+      console.error("❌ Basic Ethereal fallback failed:", error);
       this.transporter = null;
     }
+  }
+
+  async getEtherealUser() {
+    if (this.cachedEtherealAccount?.user) {
+      return this.cachedEtherealAccount.user;
+    }
+
+    const testAccount = await nodemailer.createTestAccount();
+    this.cachedEtherealAccount = {
+      user: testAccount.user,
+      pass: testAccount.pass,
+      email: testAccount.user,
+    };
+
+    return this.cachedEtherealAccount.user;
+  }
+
+  async getEtherealPass() {
+    if (this.cachedEtherealAccount?.pass) {
+      return this.cachedEtherealAccount.pass;
+    }
+
+    const testAccount = await nodemailer.createTestAccount();
+    this.cachedEtherealAccount = {
+      user: testAccount.user,
+      pass: testAccount.pass,
+      email: testAccount.user,
+    };
+
+    return this.cachedEtherealAccount.pass;
   }
 
   async createEtherealAccount() {

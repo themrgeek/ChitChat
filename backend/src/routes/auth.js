@@ -17,6 +17,7 @@ router.post("/login", authController.avatarLogin);
 router.post("/verify-login-otp", authController.verifyLoginOTP);
 
 router.get("/debug", authController.debugState); // For debugging
+router.get("/performance", authController.getPerformanceStats); // Performance monitoring
 router.get("/health", (req, res) => {
   res.json({
     status: "healthy",

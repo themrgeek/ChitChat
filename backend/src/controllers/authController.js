@@ -7,9 +7,19 @@ const otpStore = new Map();
 // User lookup cache for faster operations
 const userCache = new Map();
 
-// Background email job queue
+// Performance tracking
+let cacheHits = 0;
+let cacheMisses = 0;
+let expiredOTPsCleaned = 0;
+
+// Background job queues
 const emailJobQueue = [];
 let isProcessingJobs = false;
+
+// Background OTP job queue
+const otpJobQueue = [];
+let isProcessingOTPJobs = false;
+let otpJobStats = { processed: 0, failed: 0, avgTime: 0, totalJobs: 0 };
 
 // Cache management
 function invalidateUserCache(avatarName) {
@@ -37,6 +47,8 @@ setInterval(() => {
       cleanedCache++;
     }
   }
+
+  expiredOTPsCleaned += cleanedOTPs;
 
   if (cleanedOTPs > 0 || cleanedCache > 0) {
     console.log(`🧹 Cleaned up ${cleanedOTPs} OTPs and ${cleanedCache} cache entries`);
@@ -132,6 +144,51 @@ async function processEmailJobs() {
 
   isProcessingJobs = false;
   console.log(`📧 Email job processing completed`);
+}
+
+// Background OTP processor with performance tracking
+async function processOTPJobs() {
+  if (isProcessingOTPJobs || otpJobQueue.length === 0) return;
+
+  isProcessingOTPJobs = true;
+  const batchStart = Date.now();
+  const batchSize = otpJobQueue.length;
+
+  console.log(`📧 Processing ${batchSize} OTP email jobs`);
+
+  while (otpJobQueue.length > 0) {
+    const job = otpJobQueue.shift();
+    const jobStart = Date.now();
+
+    otpJobStats.totalJobs++;
+
+    try {
+      console.log(`📧 Sending OTP to: ${job.email} (job #${otpJobStats.totalJobs})`);
+
+      const result = await emailService.sendOTPEmail(
+        job.email,
+        job.otp,
+        job.avatarName,
+        job.tempPassword
+      );
+
+      const jobTime = Date.now() - jobStart;
+      otpJobStats.processed++;
+      otpJobStats.avgTime = ((otpJobStats.avgTime * (otpJobStats.processed - 1)) + jobTime) / otpJobStats.processed;
+
+      console.log(`✅ OTP sent to: ${job.email} (${jobTime}ms)`);
+
+    } catch (error) {
+      otpJobStats.failed++;
+      console.error(`❌ OTP failed for ${job.email}:`, error.message);
+    }
+  }
+
+  const batchTime = Date.now() - batchStart;
+  console.log(`📧 OTP batch completed: ${batchSize} jobs in ${batchTime}ms`);
+  console.log(`📊 OTP Stats: ${otpJobStats.processed} sent, ${otpJobStats.failed} failed, avg ${Math.round(otpJobStats.avgTime)}ms`);
+
+  isProcessingOTPJobs = false;
 }
 
 // Simple crypto utils
@@ -289,8 +346,10 @@ const authController = {
     }
   },
 
-  // Send OTP to email
+  // Send OTP to email (ULTRA-FAST: Instant response + background processing)
   async sendOTP(req, res) {
+    const requestStart = Date.now();
+
     try {
       console.log("📧 Received OTP request for:", req.body.email);
 
@@ -300,46 +359,55 @@ const authController = {
         return res.status(400).json({ error: "Email is required" });
       }
 
-      // Validate email format
+      // Validate email format (fast regex)
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
         return res.status(400).json({ error: "Invalid email format" });
       }
 
-      // Generate OTP and avatar details
+      // INSTANT OTP generation (no network calls)
       const otp = SimpleAvatarGenerator.generateOTP();
       const avatarName = SimpleAvatarGenerator.generateAvatarName();
       const tempPassword = SimpleAvatarGenerator.generateTempPassword();
 
-      // Store OTP in memory (expires in 5 minutes)
+      // Store OTP in memory instantly
       otpStore.set(email, {
         otp,
         avatarName,
         tempPassword,
-        expiresAt: Date.now() + 5 * 60 * 1000,
+        createdAt: new Date(),
+        expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
       });
 
-      console.log("🎯 Generated secure credentials for:", email);
+      console.log("🎯 Generated secure credentials instantly for:", email);
       console.log("   OTP:", otp);
       console.log("   Avatar:", avatarName);
-      console.log("   Password:", tempPassword);
 
-      // Send email with OTP
-      const emailResult = await emailService.sendOTPEmail(
+      // Queue email job (non-blocking - happens in background)
+      otpJobQueue.push({
         email,
         otp,
         avatarName,
-        tempPassword
-      );
+        tempPassword,
+        queuedAt: new Date()
+      });
 
+      // Start background processing (fire-and-forget)
+      setImmediate(processOTPJobs);
+
+      const responseTime = Date.now() - requestStart;
+
+      // INSTANT response with delivery estimate
       const response = {
-        message: "OTP sent successfully to your email",
+        message: "OTP sent! Check your email.",
         avatarName: avatarName,
-        // For development, include OTP in response. Remove in production.
+        // Include OTP for development/testing
         otp: process.env.NODE_ENV === "production" ? undefined : otp,
-        tempPassword:
-          process.env.NODE_ENV === "production" ? undefined : tempPassword,
-        emailStatus: emailResult.fallback ? "console_fallback" : "sent",
+        tempPassword: process.env.NODE_ENV === "production" ? undefined : tempPassword,
+        emailStatus: "queued",
+        estimatedDelivery: "10-30 seconds",
+        responseTime: `${responseTime}ms`,
+        jobQueuePosition: otpJobQueue.length
       };
 
       // Remove sensitive data in production
@@ -348,10 +416,16 @@ const authController = {
         delete response.tempPassword;
       }
 
+      console.log(`⚡ OTP request completed in ${responseTime}ms (email queued)`);
       res.json(response);
+
     } catch (error) {
       console.error("❌ Send OTP error:", error);
-      res.status(500).json({ error: "Failed to send OTP: " + error.message });
+      const responseTime = Date.now() - requestStart;
+      res.status(500).json({
+        error: "Failed to send OTP: " + error.message,
+        responseTime: `${responseTime}ms`
+      });
     }
   },
 
@@ -548,6 +622,39 @@ const authController = {
       console.error("❌ Verify login OTP error:", error);
       res.status(500).json({ error: "Failed to verify login OTP: " + error.message });
     }
+  },
+
+  // Performance monitoring endpoint
+  getPerformanceStats(req, res) {
+    res.json({
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      users: {
+        total: users.size,
+        online: Array.from(users.values()).filter(u => u.isOnline).length
+      },
+      otps: {
+        active: otpStore.size,
+        expiredCleaned: expiredOTPsCleaned
+      },
+      emailJobs: {
+        queueLength: emailJobQueue.length,
+        processing: isProcessingJobs,
+        stats: { processed: 0, failed: 0 } // Placeholder for now
+      },
+      otpJobs: {
+        queueLength: otpJobQueue.length,
+        processing: isProcessingOTPJobs,
+        stats: otpJobStats
+      },
+      cache: {
+        size: userCache.size,
+        hits: cacheHits,
+        misses: cacheMisses,
+        hitRate: cacheHits + cacheMisses > 0 ? (cacheHits / (cacheHits + cacheMisses) * 100).toFixed(1) + '%' : '0%'
+      }
+    });
   },
 
   // Debug endpoint to see current state
