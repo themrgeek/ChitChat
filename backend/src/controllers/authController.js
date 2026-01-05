@@ -217,16 +217,41 @@ setInterval(async () => {
   await saveUsersToFile();
 }, 2 * 60 * 1000); // 2 minutes
 
+// Backup functionality
+async function createDataBackup() {
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupFile = path.join(DATA_DIR, `users-backup-${timestamp}.json`);
+    await saveUsersToFile(); // Ensure data is saved first
+    await fs.copyFile(USERS_FILE, backupFile);
+    console.log(`💾 Data backup created: ${backupFile}`);
+
+    // Clean old backups (keep last 5)
+    const files = await fs.readdir(DATA_DIR);
+    const backups = files.filter(f => f.startsWith('users-backup-')).sort().reverse();
+    if (backups.length > 5) {
+      for (let i = 5; i < backups.length; i++) {
+        await fs.unlink(path.join(DATA_DIR, backups[i]));
+        console.log(`🗑️ Cleaned old backup: ${backups[i]}`);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Backup failed:', error);
+  }
+}
+
 // Save on graceful shutdown
 process.on('SIGINT', async () => {
   console.log('🛑 Saving user data before shutdown...');
   await saveUsersToFile();
+  await createDataBackup();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   console.log('🛑 Saving user data before shutdown...');
   await saveUsersToFile();
+  await createDataBackup();
   process.exit(0);
 });
 
@@ -815,6 +840,11 @@ const authController = {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       memory: process.memoryUsage(),
+      server: {
+        nodeVersion: process.version,
+        platform: process.platform,
+        arch: process.arch
+      },
       users: {
         total: users.size,
         online: Array.from(users.values()).filter(u => u.isOnline).length
@@ -849,6 +879,24 @@ const authController = {
         avgLookupTime: Math.round(avgLookupTime) + 'ms'
       }
     });
+  },
+
+  // Manual data backup
+  async createDataBackup(req, res) {
+    try {
+      await createDataBackup();
+      res.json({
+        success: true,
+        message: "Data backup created successfully",
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("❌ Manual backup failed:", error);
+      res.status(500).json({
+        success: false,
+        error: "Backup failed: " + error.message
+      });
+    }
   },
 
   // Debug endpoint to see current state
