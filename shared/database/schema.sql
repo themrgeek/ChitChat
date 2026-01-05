@@ -10,8 +10,6 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(255) UNIQUE NOT NULL,
   avatar_name VARCHAR(100) UNIQUE NOT NULL,
   temp_password VARCHAR(255) NOT NULL,
-  ethereal_user VARCHAR(255),
-  ethereal_pass VARCHAR(255),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   last_login TIMESTAMP WITH TIME ZONE,
   email_verified BOOLEAN DEFAULT FALSE,

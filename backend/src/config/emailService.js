@@ -4,20 +4,18 @@ class EmailService {
   constructor() {
     this.transporter = null;
     this.isTestAccount = false;
-    this.cachedEtherealAccount = null; // Cache for Ethereal account
-    this.connectionPool = []; // Pool of transporter connections
     this.setupOptimizedTransporter();
   }
 
   async setupOptimizedTransporter() {
     console.log("📧 Initializing optimized email service...");
 
-    // Use SMTP for production, keep basic setup for development if needed
+    // Use SMTP for production, fallback to console logging if no SMTP configured
     if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
       await this.setupSMTPTransporter();
     } else {
-      console.log("⚠️  No SMTP configuration found, falling back to basic setup");
-      await this.setupBasicEtherealFallback();
+      console.log("⚠️  No SMTP configuration found - emails will be logged to console only");
+      this.transporter = null;
     }
   }
 
@@ -81,33 +79,6 @@ class EmailService {
   }
 
 
-  async setupBasicEtherealFallback() {
-    try {
-      const testAccount = await nodemailer.createTestAccount();
-
-      this.transporter = nodemailer.createTransport({
-        host: "smtp.ethereal.email",
-        port: 587,
-        secure: false,
-        auth: {
-          user: testAccount.user,
-          pass: testAccount.pass,
-        },
-      });
-
-      this.cachedEtherealAccount = {
-        user: testAccount.user,
-        pass: testAccount.pass,
-        email: testAccount.user,
-      };
-
-      this.isTestAccount = true;
-      console.log("✅ Basic Ethereal fallback ready");
-    } catch (error) {
-      console.error("❌ Basic Ethereal fallback failed:", error);
-      this.transporter = null;
-    }
-  }
 
 
   async sendOTPEmail(email, otp, avatarName, tempPassword) {
@@ -419,15 +390,15 @@ If you didn't request this, please ignore this email.
     email,
     avatarName,
     tempPassword,
-    etherealPassword = null
+    mailboxPassword = null
   ) {
     console.log("\n📧 ===== SECURE CREDENTIALS EMAIL (CONSOLE FALLBACK) =====");
     console.log(`📧 To: ${email}`);
     console.log(`👤 Avatar Name: ${avatarName}`);
     console.log(`🔑 Temporary Password: ${tempPassword}`);
-    if (etherealPassword) {
-      console.log(`🔐 Ethereal Mailbox Password: ${etherealPassword}`);
-      console.log("🌐 Login at: https://ethereal.email");
+    if (mailboxPassword) {
+      console.log(`🔐 Mailbox Password: ${mailboxPassword}`);
+      console.log("📧 Check your email for login credentials");
     }
     console.log("⏰ Keep these credentials secure!");
     console.log("📧 =================================================\n");
@@ -459,7 +430,7 @@ If you didn't request this, please ignore this email.
     email,
     avatarName,
     tempPassword,
-    etherealPassword = null
+    mailboxPassword = null
   ) {
     return `
 <!DOCTYPE html>
@@ -532,13 +503,13 @@ If you didn't request this, please ignore this email.
         </div>
 
         ${
-          etherealPassword
+          mailboxPassword
             ? `
         <div class="credentials">
-            <h3>📧 Your Ethereal Mailbox</h3>
+            <h3>📧 Your Secure Mailbox</h3>
             <p><strong>Email:</strong> ${email}</p>
-            <p><strong>Password:</strong> ${etherealPassword}</p>
-            <p><em>Use these to access your secure mailbox at <a href="https://ethereal.email" style="color: #00ff00;">ethereal.email</a></em></p>
+            <p><strong>Password:</strong> ${mailboxPassword}</p>
+            <p><em>Check your email inbox for your login credentials</em></p>
         </div>
         `
             : ""
@@ -647,7 +618,7 @@ If you didn't request this, please ignore this email.
     email,
     avatarName,
     tempPassword,
-    etherealPassword = null
+    mailboxPassword = null
   ) {
     return `
 ChitChat IDENTITY CREATED
@@ -658,12 +629,12 @@ Your Secure Identity:
 - Temporary Password: ${tempPassword}
 
 ${
-  etherealPassword
+  mailboxPassword
     ? `
-Your Ethereal Mailbox:
+Your Secure Mailbox:
 - Email: ${email}
-- Password: ${etherealPassword}
-- Access at: https://ethereal.email
+- Password: ${mailboxPassword}
+- Check your email inbox for login credentials
 `
     : ""
 }

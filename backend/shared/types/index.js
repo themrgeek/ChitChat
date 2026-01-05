@@ -7,8 +7,6 @@
  * @property {string} email
  * @property {string} avatarName
  * @property {string} tempPassword
- * @property {string} etherealUser
- * @property {string} etherealPass
  * @property {boolean} emailVerified
  * @property {boolean} isActive
  * @property {Date} createdAt

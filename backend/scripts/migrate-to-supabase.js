@@ -101,8 +101,6 @@ class DatabaseMigrator {
             email: userData.email,
             avatar_name: avatarName,
             temp_password: userData.tempPassword || this.generateTempPassword(),
-            ethereal_user: userData.etherealUser,
-            ethereal_pass: userData.etherealPass,
             email_verified: true,
             is_active: true,
             created_at: userData.createdAt || new Date().toISOString(),

@@ -38,7 +38,7 @@ A secure, real-time, end-to-end encrypted messaging system built with Node.js, S
 - Node.js 18+
 - Supabase account
 - Railway account (for deployment)
-- Ethereal email account (for testing)
+- SMTP email service (Gmail, SendGrid, etc.)
 
 ## 🔧 Setup Instructions
 
