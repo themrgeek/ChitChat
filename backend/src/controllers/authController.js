@@ -4,6 +4,21 @@ const emailService = require("../config/emailService");
 const users = new Map();
 const otpStore = new Map();
 
+// Periodic cleanup of expired OTPs (every 5 minutes)
+setInterval(() => {
+  const now = Date.now();
+  let cleaned = 0;
+  for (const [key, otpRecord] of otpStore.entries()) {
+    if (otpRecord.expiresAt < now) {
+      otpStore.delete(key);
+      cleaned++;
+    }
+  }
+  if (cleaned > 0) {
+    console.log(`🧹 Cleaned up ${cleaned} expired OTPs`);
+  }
+}, 5 * 60 * 1000); // 5 minutes
+
 // Simple avatar generator
 class SimpleAvatarGenerator {
   static generateAvatarName() {
@@ -65,14 +80,25 @@ class SimpleCryptoUtils {
 const authController = {
   // Create new user with auto-generated Ethereal email
   async createNewUser(req, res) {
+    const startTime = Date.now();
     try {
       console.log("🎯 Received new user creation request");
 
       // Generate Ethereal email credentials
       const testAccount = await emailService.createEtherealAccount();
 
-      // Generate avatar details
-      const avatarName = SimpleAvatarGenerator.generateAvatarName();
+      // Generate unique avatar details (with collision avoidance)
+      let avatarName;
+      let attempts = 0;
+      do {
+        avatarName = SimpleAvatarGenerator.generateAvatarName();
+        attempts++;
+        // Prevent infinite loop, but 1000 attempts should be more than enough
+        if (attempts > 1000) {
+          throw new Error("Unable to generate unique avatar name");
+        }
+      } while (users.has(avatarName));
+
       const tempPassword = SimpleAvatarGenerator.generateTempPassword();
 
       // Generate key pair for user
@@ -121,6 +147,9 @@ const authController = {
         delete response.password;
         delete response.etherealPassword;
       }
+
+      const responseTime = Date.now() - startTime;
+      console.log(`⚡ New user creation completed in ${responseTime}ms`);
 
       res.json(response);
     } catch (error) {

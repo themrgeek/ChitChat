@@ -47,7 +47,7 @@ if (process.env.PORT) {
   const portValue = process.env.PORT.trim();
 
   // Handle case where PORT might be set to a URL (Railway issue)
-  if (portValue.includes('://')) {
+  if (portValue.includes("://")) {
     console.warn(`⚠️ PORT set to URL: "${portValue}", using default 3000`);
     PORT = 3000;
   } else {
@@ -56,7 +56,9 @@ if (process.env.PORT) {
       PORT = parsedPort;
       console.log(`✅ Using Railway-assigned PORT: ${PORT}`);
     } else {
-      console.warn(`⚠️ Invalid PORT value: "${portValue}" (parsed: ${parsedPort}), using default 3000`);
+      console.warn(
+        `⚠️ Invalid PORT value: "${portValue}" (parsed: ${parsedPort}), using default 3000`
+      );
       PORT = 3000;
     }
   }

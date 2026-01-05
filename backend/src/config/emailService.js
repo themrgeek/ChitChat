@@ -4,6 +4,7 @@ class EmailService {
   constructor() {
     this.transporter = null;
     this.isTestAccount = false;
+    this.cachedEtherealAccount = null; // Cache for Ethereal account
     this.setupTransporter();
   }
 
@@ -77,33 +78,27 @@ class EmailService {
       // but make emails identifiable by avatar name in the subject/content
       // This is acceptable for a demo system focused on untraceable messaging
 
-      if (!this.isTestAccount || !this.transporter) {
-        // Fallback: create a temporary account if no transporter exists
-        const testAccount = await nodemailer.createTestAccount();
-        const userPart = testAccount.user.includes("@")
-          ? testAccount.user.split("@")[0]
-          : testAccount.user;
-
-        return {
-          user: userPart,
-          pass: testAccount.pass,
-          email: `${userPart}@ethereal.email`,
-        };
+      // Use cached account if available (major performance optimization)
+      if (this.cachedEtherealAccount) {
+        console.log("✅ Using cached Ethereal account");
+        return this.cachedEtherealAccount;
       }
 
-      // Use the server's main Ethereal account for all users
-      // Each user will get unique credentials but shared mailbox
-      // OTPs will be distinguishable by avatar name in email content
-      const testAccount = await nodemailer.createTestAccount(); // This will be the same account
+      // Create and cache the Ethereal account (only once per server startup)
+      console.log("📧 Creating and caching Ethereal test account...");
+      const testAccount = await nodemailer.createTestAccount();
       const userPart = testAccount.user.includes("@")
         ? testAccount.user.split("@")[0]
         : testAccount.user;
 
-      return {
+      this.cachedEtherealAccount = {
         user: userPart,
         pass: testAccount.pass,
         email: `${userPart}@ethereal.email`,
       };
+
+      console.log("✅ Ethereal account cached for future use");
+      return this.cachedEtherealAccount;
     } catch (error) {
       console.error("❌ Failed to setup Ethereal account:", error);
       throw new Error("Failed to setup Ethereal email account");
