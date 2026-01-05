@@ -73,8 +73,8 @@ class EmailService {
 
     } catch (error) {
       console.error("❌ SMTP setup failed:", error);
-      console.log("📧 Falling back to basic setup...");
-      await this.setupBasicEtherealFallback();
+      console.error("📧 Email service will not be available until SMTP configuration is fixed");
+      this.transporter = null;
     }
   }
 
