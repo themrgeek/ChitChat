@@ -17,5 +17,13 @@ router.post("/login", authController.avatarLogin);
 router.post("/verify-login-otp", authController.verifyLoginOTP);
 
 router.get("/debug", authController.debugState); // For debugging
+router.get("/health", (req, res) => {
+  res.json({
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage()
+  });
+}); // Health check endpoint
 
 module.exports = router;

@@ -1,42 +1,79 @@
 const connectedUsers = new Map();
 
+// Background job queues for heavy operations
+const fileJobQueue = [];
+let isProcessingFileJobs = false;
+
+// Background file processor
+async function processFileJobs() {
+  if (isProcessingFileJobs || fileJobQueue.length === 0) return;
+
+  isProcessingFileJobs = true;
+  console.log(`📁 Processing ${fileJobQueue.length} file jobs`);
+
+  while (fileJobQueue.length > 0) {
+    const job = fileJobQueue.shift();
+    try {
+      console.log(`📁 Delivering file from ${job.from} to ${job.targetAvatar}`);
+
+      // Deliver the file
+      job.socket.to(job.targetSocketId).emit("file-received", {
+        fileData: job.fileData,
+        fileName: job.fileName,
+        fileType: job.fileType,
+        from: job.from,
+        timestamp: new Date(),
+      });
+
+      console.log(`✅ File delivered: ${job.fileName}`);
+    } catch (error) {
+      console.error(`❌ File delivery failed: ${error.message}`);
+    }
+  }
+
+  isProcessingFileJobs = false;
+}
+
 function setupSocket(io) {
   io.on("connection", (socket) => {
     console.log(`🔗 User connected: ${socket.id}`);
 
-    // User joins with their avatar name
-    socket.on("user-join", async (data) => {
+    // User joins with their avatar name (optimized)
+    socket.on("user-join", (data) => {
       const { avatarName } = data;
+
+      // Fast user registration
       connectedUsers.set(avatarName, socket.id);
       socket.avatarName = avatarName;
 
-      console.log(`👤 User joined: ${avatarName}`);
-
-      // Notify other users
+      // Notify other users of online status
       socket.broadcast.emit("user-online", { avatarName });
+
+      console.log(`👤 User online: ${avatarName} (${connectedUsers.size} total)`);
     });
 
-    // Initiate session with another user
+    // Initiate session with another user (optimized)
     socket.on("session-request", (data) => {
       const { targetAvatar, secretCode, initiatorAvatar } = data;
+
+      // Fast user lookup
       const targetSocketId = connectedUsers.get(targetAvatar);
 
-      console.log(
-        `📨 Session request from ${initiatorAvatar} to ${targetAvatar}`
-      );
-
       if (targetSocketId) {
+        // Deliver session request immediately
         socket.to(targetSocketId).emit("session-request", {
           initiatorAvatar,
           secretCode,
         });
-        console.log(`✅ Session request delivered to ${targetAvatar}`);
+
+        // Log success (minimal logging for performance)
+        console.log(`📨 Session: ${initiatorAvatar} → ${targetAvatar}`);
       } else {
+        // User not online - fast failure response
         socket.emit("session-error", {
           message: "User not online",
           targetAvatar,
         });
-        console.log(`❌ User ${targetAvatar} not found`);
       }
     });
 
@@ -65,14 +102,13 @@ function setupSocket(io) {
       }
     });
 
-    // Send encrypted message
+    // Send encrypted message (optimized)
     socket.on("send-message", (data) => {
       const { targetAvatar, encryptedMessage, messageId } = data;
       const targetSocketId = connectedUsers.get(targetAvatar);
 
-      console.log(`💬 Message from ${socket.avatarName} to ${targetAvatar}`);
-
       if (targetSocketId) {
+        // Send message immediately
         socket.to(targetSocketId).emit("new-message", {
           encryptedMessage,
           messageId,
@@ -80,27 +116,75 @@ function setupSocket(io) {
           timestamp: new Date(),
         });
 
-        // Send read receipt after 1 second
-        setTimeout(() => {
-          socket.to(targetSocketId).emit("message-read", { messageId });
-        }, 1000);
+        // Send read receipt after 1 second (non-blocking)
+        setImmediate(() => {
+          setTimeout(() => {
+            try {
+              socket.to(targetSocketId).emit("message-read", { messageId });
+            } catch (error) {
+              // Socket might be disconnected, ignore
+            }
+          }, 1000);
+        });
+
+        console.log(`💬 Message delivered: ${socket.avatarName} → ${targetAvatar}`);
+      } else {
+        // User not online, could implement offline message queuing here
+        socket.emit("message-error", {
+          messageId,
+          error: "User not online"
+        });
       }
     });
 
-    // Send file
+    // Send file (optimized with background processing)
     socket.on("send-file", (data) => {
       const { targetAvatar, fileData, fileName, fileType } = data;
       const targetSocketId = connectedUsers.get(targetAvatar);
 
-      console.log(`📁 File sent from ${socket.avatarName} to ${targetAvatar}`);
+      console.log(`📁 File queued from ${socket.avatarName} to ${targetAvatar}`);
 
       if (targetSocketId) {
-        socket.to(targetSocketId).emit("file-received", {
-          fileData,
+        // For large files (>100KB), use background processing
+        const fileSizeKB = (fileData.length * 3) / 4 / 1024; // Base64 overhead
+
+        if (fileSizeKB > 100) {
+          // Queue for background processing
+          fileJobQueue.push({
+            socket,
+            targetSocketId,
+            targetAvatar,
+            fileData,
+            fileName,
+            fileType,
+            from: socket.avatarName
+          });
+
+          // Start processing in background
+          setImmediate(processFileJobs);
+
+          // Immediate acknowledgment
+          socket.emit("file-queued", {
+            fileName,
+            targetAvatar,
+            estimatedDelivery: "5-10 seconds"
+          });
+        } else {
+          // Small files: deliver immediately
+          socket.to(targetSocketId).emit("file-received", {
+            fileData,
+            fileName,
+            fileType,
+            from: socket.avatarName,
+            timestamp: new Date(),
+          });
+
+          console.log(`✅ Small file delivered immediately: ${fileName}`);
+        }
+      } else {
+        socket.emit("file-error", {
           fileName,
-          fileType,
-          from: socket.avatarName,
-          timestamp: new Date(),
+          message: "Recipient not online"
         });
       }
     });

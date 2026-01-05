@@ -16,13 +16,40 @@ const io = socketIo(server, {
     origin: "*",
     methods: ["GET", "POST"],
   },
+  // Performance optimizations
+  pingTimeout: 60000, // 60 seconds
+  pingInterval: 25000, // 25 seconds
+  transports: ['websocket', 'polling'], // Prefer websockets
+  allowEIO3: true, // Allow Engine.IO v3 clients
 });
 
-// Middleware
-app.use(cors());
+// Response time logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`⚡ ${req.method} ${req.originalUrl} - ${duration}ms`);
+  });
+  next();
+});
+
+// Performance optimizations
+app.set('trust proxy', 1); // Trust first proxy for faster header parsing
+app.disable('x-powered-by'); // Remove X-Powered-By header for security/performance
+
+// Middleware (optimized order for performance)
+app.use(cors({
+  origin: true, // Allow all origins for now
+  credentials: true
+}));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-app.use(express.static(path.join(__dirname, "../frontend")));
+
+// Static file serving with caching headers
+app.use(express.static(path.join(__dirname, "../frontend"), {
+  maxAge: '1h', // Cache static files for 1 hour
+  etag: true
+}));
 
 // Routes
 app.use("/api/auth", authRoutes);

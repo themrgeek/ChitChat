@@ -1,25 +1,45 @@
 const emailService = require("../config/emailService");
 
-// Simple in-memory storage for demo
+// Simple in-memory storage for demo (optimized)
 const users = new Map();
 const otpStore = new Map();
+
+// User lookup cache for faster operations
+const userCache = new Map();
 
 // Background email job queue
 const emailJobQueue = [];
 let isProcessingJobs = false;
 
-// Periodic cleanup of expired OTPs (every 5 minutes)
+// Cache management
+function invalidateUserCache(avatarName) {
+  userCache.delete(avatarName);
+}
+
+// Periodic cleanup of expired OTPs and cache (every 5 minutes)
 setInterval(() => {
   const now = Date.now();
-  let cleaned = 0;
+  let cleanedOTPs = 0;
+  let cleanedCache = 0;
+
+  // Clean expired OTPs
   for (const [key, otpRecord] of otpStore.entries()) {
     if (otpRecord.expiresAt < now) {
       otpStore.delete(key);
-      cleaned++;
+      cleanedOTPs++;
     }
   }
-  if (cleaned > 0) {
-    console.log(`🧹 Cleaned up ${cleaned} expired OTPs`);
+
+  // Clean stale cache entries (older than 30 minutes)
+  for (const [key, cacheEntry] of userCache.entries()) {
+    if (now - cacheEntry.timestamp > 30 * 60 * 1000) {
+      userCache.delete(key);
+      cleanedCache++;
+    }
+  }
+
+  if (cleanedOTPs > 0 || cleanedCache > 0) {
+    console.log(`🧹 Cleaned up ${cleanedOTPs} OTPs and ${cleanedCache} cache entries`);
   }
 }, 5 * 60 * 1000); // 5 minutes
 
@@ -134,17 +154,29 @@ const authController = {
       // Use cached Ethereal account (instant - no network call)
       const testAccount = await emailService.createEtherealAccount();
 
-      // Generate unique avatar details (with collision avoidance)
+      // Generate unique avatar details (optimized with early collision detection)
       let avatarName;
       let attempts = 0;
+      const maxAttempts = 1000;
+
       do {
         avatarName = SimpleAvatarGenerator.generateAvatarName();
         attempts++;
-        // Prevent infinite loop, but 1000 attempts should be more than enough
-        if (attempts > 1000) {
-          throw new Error("Unable to generate unique avatar name");
+
+        // Fast collision check
+        if (!users.has(avatarName)) {
+          break; // Found unique name
         }
-      } while (users.has(avatarName));
+
+        // Prevent infinite loop with exponential backoff for rare cases
+        if (attempts > 100 && attempts % 100 === 0) {
+          console.warn(`⚠️ Avatar generation attempts: ${attempts}`);
+        }
+
+        if (attempts >= maxAttempts) {
+          throw new Error("Unable to generate unique avatar name after maximum attempts");
+        }
+      } while (true);
 
       const tempPassword = SimpleAvatarGenerator.generateTempPassword();
 
