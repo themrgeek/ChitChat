@@ -4,9 +4,9 @@
   "description": "ChitChat - Secure P2P Encrypted Messaging System",
   "main": "backend/server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node backend/server.js",
     "build": "echo 'No build step required for this Node.js app'",
-    "dev": "nodemon server.js"
+    "dev": "nodemon backend/server.js"
   },
   "keywords": ["chat", "encrypted", "p2p", "messaging"],
   "author": "",
