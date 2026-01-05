@@ -12,5 +12,19 @@
     "createdAt": "2026-01-05T05:33:11.810Z",
     "lastSeen": "2026-01-05T05:33:11.810Z",
     "emailStatus": "queued"
+  },
+  "Dark_Agent_218": {
+    "avatarName": "Dark_Agent_218",
+    "password": "vuAG1hqlb5jn",
+    "email": "ttd5v5eosbem3bd4@ethereal.email",
+    "etherealCredentials": {
+      "user": "ttd5v5eosbem3bd4@ethereal.email",
+      "pass": "yhM1kD7a35p4WHC8N6"
+    },
+    "publicKey": "pub-konolj8xang",
+    "privateKey": "priv-l2cp0njilgm",
+    "createdAt": "2026-01-05T06:16:17.592Z",
+    "lastSeen": "2026-01-05T06:16:17.592Z",
+    "emailStatus": "queued"
   }
 }
