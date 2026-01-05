@@ -18,60 +18,60 @@ class EmailService {
 
   async setupEtherealOptimizedTransporter() {
     try {
-      console.log("📧 Setting up optimized Ethereal transporter with connection pooling...");
+      console.log("📧 Setting up reliable Ethereal transporter for Railway...");
 
       // Get cached account credentials
       const user = await this.getEtherealUser();
       const pass = await this.getEtherealPass();
 
-      // Create optimized transporter with connection pooling
+      // Create reliable transporter without connection pooling (Railway-friendly)
       this.transporter = nodemailer.createTransport({
         host: "smtp.ethereal.email",
         port: 587,
         secure: false,
-        pool: true, // Enable connection pooling
-        maxConnections: 2, // Reduced for Railway stability
-        maxMessages: 50, // Messages per connection
-        rateLimit: 5, // Conservative rate limiting
         auth: {
           user: user,
           pass: pass,
         },
-        // Performance optimizations
+        // Railway-optimized settings
+        connectionTimeout: 30000, // 30 seconds
+        greetingTimeout: 10000,   // 10 seconds
+        socketTimeout: 45000,     // 45 seconds
+        // Disable problematic features for containerized environments
         disableFileAccess: true,
         disableUrlAccess: true,
-        // Add timeout to prevent hanging
-        connectionTimeout: 10000,
-        greetingTimeout: 5000,
-        socketTimeout: 15000,
+        tls: {
+          rejectUnauthorized: false, // For development/test environments
+          ciphers: 'HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA'
+        }
       });
 
-      // Test connection with timeout
+      // Test connection with longer timeout
       try {
+        console.log("🔍 Testing transporter connection...");
         await Promise.race([
           this.transporter.verify(),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Connection timeout')), 10000)
+            setTimeout(() => reject(new Error('Connection timeout')), 20000)
           )
         ]);
         this.isTestAccount = true;
 
-        console.log("✅ Optimized Ethereal transporter ready:");
+        console.log("✅ Ethereal transporter ready:");
         console.log("   👤 User:", user);
         console.log("   🔑 Pass:", pass.substring(0, 8) + "...");
         console.log("   🌐 Web: https://ethereal.email");
-        console.log("   ⚡ Connection pooling: Enabled");
-        console.log("   📊 Max connections: 2");
+        console.log("   ⚡ Connection pooling: Disabled (Railway optimized)");
 
       } catch (verifyError) {
         console.error("❌ Transporter verification failed:", verifyError.message);
-        console.log("📧 Continuing without verification (may still work)...");
+        console.log("📧 Continuing anyway - Ethereal may still work...");
         this.isTestAccount = true; // Assume it works
       }
 
     } catch (error) {
-      console.error("❌ Optimized Ethereal setup failed:", error);
-      console.log("📧 Falling back to basic Ethereal setup...");
+      console.error("❌ Ethereal setup failed:", error);
+      console.log("📧 Falling back to basic setup...");
       await this.setupBasicEtherealFallback();
     }
   }
@@ -194,22 +194,20 @@ class EmailService {
         text: this.createTextVersion(otp, avatarName, tempPassword),
       };
 
-      // Add timeout to prevent hanging
-      const sendPromise = this.transporter.sendMail(mailOptions);
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Email send timeout')), 15000)
-      );
-
-      const info = await Promise.race([sendPromise, timeoutPromise]);
+      // Send email with timeout protection
+      const info = await this.transporter.sendMail(mailOptions);
 
       console.log("✅ OTP Email sent successfully to:", email);
+      console.log("📧 Message ID:", info.messageId);
+      console.log("📧 Response:", info.response);
 
       if (this.isTestAccount) {
         const previewUrl = nodemailer.getTestMessageUrl(info);
         console.log("📧 Email Preview URL:", previewUrl);
-        console.log(
-          "💡 Click the above URL to view the email in your browser!"
-        );
+        console.log("💡 Click the above URL to view the email in your browser!");
+        console.log("🔍 Email should be visible at: https://ethereal.email");
+      } else {
+        console.log("📧 Production email sent via:", this.transporter.transporter.name);
       }
 
       return {
@@ -221,9 +219,22 @@ class EmailService {
       };
     } catch (error) {
       console.error("❌ OTP Email sending failed:", error.message);
+      console.error("❌ Error code:", error.code);
+      console.error("❌ Error command:", error.command);
+      console.error("❌ Full error:", error);
+
+      // Check for common SMTP errors
+      if (error.code === 'ECONNREFUSED') {
+        console.error("❌ SMTP connection refused - check network/firewall");
+      } else if (error.code === 'ETIMEDOUT') {
+        console.error("❌ SMTP connection timeout - check network");
+      } else if (error.code === 'EAUTH') {
+        console.error("❌ SMTP authentication failed - check credentials");
+      }
 
       // Always fallback to console for OTP (critical functionality)
       console.log("📧 Falling back to console logging for OTP delivery");
+      console.log("🔍 Check Railway logs for detailed error information");
       return this.sendConsoleFallback(email, otp, avatarName, tempPassword);
     }
   }
@@ -774,6 +785,45 @@ SECURITY NOTICE: This OTP is for your eyes only. Do not share with anyone.
 This is an automated message from ChitChat Secure Messaging System.
 If you didn't request this login, please ignore this email.
         `;
+  }
+
+  // Health check method for debugging email service
+  async healthCheck() {
+    try {
+      const health = {
+        transporterReady: !!this.transporter,
+        isTestAccount: this.isTestAccount,
+        cachedAccount: !!this.cachedEtherealAccount,
+        timestamp: new Date().toISOString()
+      };
+
+      if (this.transporter) {
+        try {
+          await Promise.race([
+            this.transporter.verify(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Health check timeout')), 5000)
+            )
+          ]);
+          health.transporterVerified = true;
+          health.status = 'healthy';
+        } catch (verifyError) {
+          health.transporterVerified = false;
+          health.verificationError = verifyError.message;
+          health.status = 'degraded';
+        }
+      } else {
+        health.status = 'unhealthy';
+      }
+
+      return health;
+    } catch (error) {
+      return {
+        status: 'error',
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
   }
 }
 

@@ -44,7 +44,7 @@ app.use((req, res, next) => {
     // Only log slow requests (>500ms) or API calls to reduce noise
     if (duration > 500) {
       console.log(`🐌 SLOW: ${req.method} ${req.originalUrl} - ${duration}ms`);
-    } else if (req.originalUrl.includes('/api/')) {
+    } else if (req.originalUrl.includes("/api/")) {
       console.log(`⚡ ${req.method} ${req.originalUrl} - ${duration}ms`);
     }
   });
@@ -73,7 +73,7 @@ const limiter = rateLimit({
   max: 100, // Limit each IP to 100 requests per windowMs
   message: {
     error: "Too many requests from this IP, please try again later.",
-    retryAfter: 15 * 60
+    retryAfter: 15 * 60,
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -85,7 +85,7 @@ const authLimiter = rateLimit({
   max: 10, // Limit auth attempts
   message: {
     error: "Too many authentication attempts, please wait 5 minutes.",
-    retryAfter: 5 * 60
+    retryAfter: 5 * 60,
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -144,24 +144,26 @@ app.get("/health", (req, res) => {
     memory: {
       used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + "MB",
       total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + "MB",
-      external: Math.round(process.memoryUsage().external / 1024 / 1024) + "MB"
+      external: Math.round(process.memoryUsage().external / 1024 / 1024) + "MB",
     },
     version: process.version,
     platform: process.platform,
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || "development",
   };
 
   // Basic health checks
   const criticalChecks = {
     serverRunning: true,
     memoryOK: process.memoryUsage().heapUsed < 100 * 1024 * 1024, // < 100MB
-    uptimeOK: process.uptime() > 5 // At least 5 seconds uptime
+    uptimeOK: process.uptime() > 5, // At least 5 seconds uptime
   };
 
   health.checks = criticalChecks;
 
   // Return 200 if all critical services are OK
-  const allHealthy = Object.values(criticalChecks).every(check => check === true);
+  const allHealthy = Object.values(criticalChecks).every(
+    (check) => check === true
+  );
   res.status(allHealthy ? 200 : 503).json(health);
 });
 

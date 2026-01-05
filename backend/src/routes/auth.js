@@ -33,4 +33,10 @@ router.get("/health", (req, res) => {
   });
 }); // Health check endpoint
 
+router.get("/email-health", async (req, res) => {
+  const emailService = require("../config/emailService");
+  const health = await emailService.healthCheck();
+  res.json(health);
+}); // Email service health check
+
 module.exports = router;
