@@ -36,7 +36,19 @@ app.get("/", (req, res) => {
 // Socket.io setup
 setupSocket(io);
 
-const PORT = parseInt(process.env.PORT) || 3000;
+// Parse PORT with validation
+let PORT;
+if (process.env.PORT) {
+  const parsedPort = parseInt(process.env.PORT, 10);
+  if (!isNaN(parsedPort) && parsedPort >= 0 && parsedPort <= 65535) {
+    PORT = parsedPort;
+  } else {
+    console.warn(`⚠️ Invalid PORT value: "${process.env.PORT}", using default 3000`);
+    PORT = 3000;
+  }
+} else {
+  PORT = 3000;
+}
 server.listen(PORT, () => {
   console.log(`🚀 ChitChat server running on port ${PORT}`);
   console.log(`🔒 Real P2P messaging system activated`);
