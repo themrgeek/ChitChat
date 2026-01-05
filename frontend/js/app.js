@@ -321,8 +321,8 @@ class AppManager {
 
       if (response.ok) {
         const emailMessage = data.emailStatus === 'queued'
-          ? `Identity created instantly! Email will be sent in ${data.estimatedEmailDelivery}.`
-          : "Secure identity created with email!";
+          ? `Identity created! Use the credentials below to login. Email will be sent in ${data.estimatedEmailDelivery}.`
+          : "Secure identity created! Use the credentials below to login.";
 
         this.showMessage(emailMessage, "success");
 
@@ -517,6 +517,11 @@ class AppManager {
               ? `<p><strong>Ethereal Password:</strong> ${data.etherealPassword}</p>`
               : ""
           }
+          <div style="background: rgba(255, 165, 0, 0.1); border: 1px solid #ffaa00; padding: 10px; border-radius: 5px; margin: 15px 0;">
+            <p style="font-size: 12px; color: #ffaa00; margin: 0;">
+              <i class="fas fa-exclamation-triangle"></i> <strong>Security Note:</strong> Keep these credentials secure and do not share them.
+            </p>
+          </div>
           <p style="font-size: 12px; color: var(--secondary-color); margin-top: 15px;">
             ${
               data.emailStatus === 'queued'

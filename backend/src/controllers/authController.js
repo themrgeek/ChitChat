@@ -188,21 +188,16 @@ const authController = {
       console.log(`⚡ User creation completed instantly in ${responseTime}ms (email queued)`);
 
       const response = {
-        message: "Secure identity created instantly! Email will be sent in background.",
+        message: "Secure identity created! Here are your login credentials.",
         avatarName: avatarName,
         password: tempPassword,
         etherealEmail: testAccount.email,
-        etherealPassword: testAccount.pass, // Include for development/testing
+        etherealPassword: testAccount.pass,
         emailStatus: "queued",
         estimatedEmailDelivery: "30-60 seconds",
         responseTime: `${responseTime}ms`,
+        securityNote: "⚠️ Keep these credentials secure. They will also be emailed to you."
       };
-
-      // Remove sensitive data in production
-      if (process.env.NODE_ENV === "production") {
-        delete response.password;
-        delete response.etherealPassword;
-      }
 
       res.json(response);
     } catch (error) {
