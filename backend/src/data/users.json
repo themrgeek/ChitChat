@@ -26,5 +26,19 @@
     "createdAt": "2026-01-05T06:16:17.592Z",
     "lastSeen": "2026-01-05T06:16:17.592Z",
     "emailStatus": "queued"
+  },
+  "Silent_Watcher_41": {
+    "avatarName": "Silent_Watcher_41",
+    "password": "aNHtPm1eJphv",
+    "email": "omexnqey34suonkf@ethereal.email",
+    "etherealCredentials": {
+      "user": "omexnqey34suonkf@ethereal.email",
+      "pass": "CF5bVwwhea2HK4raTc"
+    },
+    "publicKey": "pub-r430yobqrhd",
+    "privateKey": "priv-jzzomjbj09",
+    "createdAt": "2026-01-05T06:22:37.840Z",
+    "lastSeen": "2026-01-05T06:22:37.840Z",
+    "emailStatus": "queued"
   }
 }

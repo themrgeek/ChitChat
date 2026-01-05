@@ -203,8 +203,6 @@ class AuthService {
           email,
           avatar_name: avatarName,
           temp_password: tempPassword,
-          ethereal_user: etherealUser,
-          ethereal_pass: etherealPass,
           email_verified: true
         })
         .select()
@@ -230,14 +228,14 @@ class AuthService {
         // Don't fail the whole operation for profile creation
       }
 
-      // Send credentials email
+        // Send credentials email
       try {
         console.log(`📧 Sending credentials email to: ${email}`);
         const credentialsEmailResult = await emailService.sendCredentialsEmail(
           email,
           avatarName,
           tempPassword,
-          etherealPass // Pass the ethereal password for mailbox access
+          null // No longer using Ethereal
         );
 
         if (!credentialsEmailResult.success) {

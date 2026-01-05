@@ -12,69 +12,74 @@ class EmailService {
   async setupOptimizedTransporter() {
     console.log("📧 Initializing optimized email service...");
 
-    // Always use optimized Ethereal for development/production
-    await this.setupEtherealOptimizedTransporter();
+    // Use SMTP for production, keep basic setup for development if needed
+    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+      await this.setupSMTPTransporter();
+    } else {
+      console.log("⚠️  No SMTP configuration found, falling back to basic setup");
+      await this.setupBasicEtherealFallback();
+    }
   }
 
-  async setupEtherealOptimizedTransporter() {
+  async setupSMTPTransporter() {
     try {
-      console.log("📧 Setting up reliable Ethereal transporter for Railway...");
+      console.log("📧 Setting up SMTP transporter...");
 
-      // Get cached account credentials
-      const user = await this.getEtherealUser();
-      const pass = await this.getEtherealPass();
-
-      // Create reliable transporter without connection pooling (Railway-friendly)
-      this.transporter = nodemailer.createTransport({
-        host: "smtp.ethereal.email",
-        port: 587,
-        secure: false,
+      // Create SMTP transporter
+      this.transporter = nodemailer.createTransporter({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT) || 587,
+        secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
         auth: {
-          user: user,
-          pass: pass,
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
         },
-        // Railway-optimized settings
-        connectionTimeout: 30000, // 30 seconds
-        greetingTimeout: 10000,   // 10 seconds
-        socketTimeout: 45000,     // 45 seconds
-        // Disable problematic features for containerized environments
-        disableFileAccess: true,
-        disableUrlAccess: true,
+        // Performance and security optimizations
+        connectionTimeout: 30000,
+        greetingTimeout: 10000,
+        socketTimeout: 60000,
+        // Security settings
         tls: {
-          rejectUnauthorized: false, // For development/test environments
-          ciphers: 'HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA'
-        }
+          ciphers: 'HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA',
+          rejectUnauthorized: process.env.NODE_ENV === 'production'
+        },
+        // Connection pooling
+        pool: true,
+        maxConnections: 5,
+        maxMessages: 100,
+        rateLimit: 10
       });
 
-      // Test connection with longer timeout
+      // Test connection
       try {
-        console.log("🔍 Testing transporter connection...");
+        console.log("🔍 Testing SMTP connection...");
         await Promise.race([
           this.transporter.verify(),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Connection timeout')), 20000)
+            setTimeout(() => reject(new Error('SMTP connection timeout')), 20000)
           )
         ]);
-        this.isTestAccount = true;
+        this.isTestAccount = false;
 
-        console.log("✅ Ethereal transporter ready:");
-        console.log("   👤 User:", user);
-        console.log("   🔑 Pass:", pass.substring(0, 8) + "...");
-        console.log("   🌐 Web: https://ethereal.email");
-        console.log("   ⚡ Connection pooling: Disabled (Railway optimized)");
+        console.log("✅ SMTP transporter ready:");
+        console.log("   📧 Host:", process.env.SMTP_HOST);
+        console.log("   🔒 Secure:", process.env.SMTP_SECURE === 'true');
+        console.log("   👤 User:", process.env.SMTP_USER);
+        console.log("   📬 From:", process.env.EMAIL_FROM || process.env.SMTP_USER);
 
       } catch (verifyError) {
-        console.error("❌ Transporter verification failed:", verifyError.message);
-        console.log("📧 Continuing anyway - Ethereal may still work...");
-        this.isTestAccount = true; // Assume it works
+        console.error("❌ SMTP transporter verification failed:", verifyError.message);
+        console.log("📧 Continuing anyway - emails may still work...");
+        this.isTestAccount = false;
       }
 
     } catch (error) {
-      console.error("❌ Ethereal setup failed:", error);
+      console.error("❌ SMTP setup failed:", error);
       console.log("📧 Falling back to basic setup...");
       await this.setupBasicEtherealFallback();
     }
   }
+
 
   async setupBasicEtherealFallback() {
     try {
@@ -104,70 +109,6 @@ class EmailService {
     }
   }
 
-  async getEtherealUser() {
-    if (this.cachedEtherealAccount?.user) {
-      return this.cachedEtherealAccount.user;
-    }
-
-    const testAccount = await nodemailer.createTestAccount();
-    this.cachedEtherealAccount = {
-      user: testAccount.user,
-      pass: testAccount.pass,
-      email: testAccount.user,
-    };
-
-    return this.cachedEtherealAccount.user;
-  }
-
-  async getEtherealPass() {
-    if (this.cachedEtherealAccount?.pass) {
-      return this.cachedEtherealAccount.pass;
-    }
-
-    const testAccount = await nodemailer.createTestAccount();
-    this.cachedEtherealAccount = {
-      user: testAccount.user,
-      pass: testAccount.pass,
-      email: testAccount.user,
-    };
-
-    return this.cachedEtherealAccount.pass;
-  }
-
-  async createEtherealAccount() {
-    try {
-      console.log("📧 Setting up Ethereal account for user...");
-
-      // Since Ethereal reuses the same test account, we'll use the server's main account
-      // but make emails identifiable by avatar name in the subject/content
-      // This is acceptable for a demo system focused on untraceable messaging
-
-      // Use cached account if available (major performance optimization)
-      if (this.cachedEtherealAccount) {
-        console.log("✅ Using cached Ethereal account");
-        return this.cachedEtherealAccount;
-      }
-
-      // Create and cache the Ethereal account (only once per server startup)
-      console.log("📧 Creating and caching Ethereal test account...");
-      const testAccount = await nodemailer.createTestAccount();
-      const userPart = testAccount.user.includes("@")
-        ? testAccount.user.split("@")[0]
-        : testAccount.user;
-
-      this.cachedEtherealAccount = {
-        user: userPart,
-        pass: testAccount.pass,
-        email: `${userPart}@ethereal.email`,
-      };
-
-      console.log("✅ Ethereal account cached for future use");
-      return this.cachedEtherealAccount;
-    } catch (error) {
-      console.error("❌ Failed to setup Ethereal account:", error);
-      throw new Error("Failed to setup Ethereal email account");
-    }
-  }
 
   async sendOTPEmail(email, otp, avatarName, tempPassword) {
     // If no transporter, use console fallback immediately
@@ -184,10 +125,8 @@ class EmailService {
 
     try {
       const mailOptions = {
-        from: this.isTestAccount
-          ? '"ChitChat Security" <noreply@ethereal.email>'
-          : process.env.EMAIL_FROM ||
-            '"ChitChat Security" <security@chitchat-app.com>',
+        from: process.env.EMAIL_FROM ||
+          `"ChitChat Security" <${process.env.SMTP_USER}>`,
         to: email,
         subject: "🔒 Your ChitChat Secure OTP",
         html: emailContent,
@@ -200,22 +139,12 @@ class EmailService {
       console.log("✅ OTP Email sent successfully to:", email);
       console.log("📧 Message ID:", info.messageId);
       console.log("📧 Response:", info.response);
-
-      if (this.isTestAccount) {
-        const previewUrl = nodemailer.getTestMessageUrl(info);
-        console.log("📧 Email Preview URL:", previewUrl);
-        console.log("💡 Click the above URL to view the email in your browser!");
-        console.log("🔍 Email should be visible at: https://ethereal.email");
-      } else {
-        console.log("📧 Production email sent via:", this.transporter.transporter.name);
-      }
+      console.log("📧 Sent via:", process.env.SMTP_HOST);
 
       return {
         success: true,
         messageId: info.messageId,
-        previewUrl: this.isTestAccount
-          ? nodemailer.getTestMessageUrl(info)
-          : null,
+        previewUrl: null, // No preview URL for production SMTP
       };
     } catch (error) {
       console.error("❌ OTP Email sending failed:", error.message);
@@ -263,10 +192,8 @@ class EmailService {
 
     try {
       const mailOptions = {
-        from: this.isTestAccount
-          ? '"ChitChat Security" <noreply@ethereal.email>'
-          : process.env.EMAIL_FROM ||
-            '"ChitChat Security" <security@chitchat-app.com>',
+        from: process.env.EMAIL_FROM ||
+          `"ChitChat Security" <${process.env.SMTP_USER}>`,
         to: email,
         subject: "🔐 Your ChitChat Secure Identity Created",
         html: emailContent,
@@ -274,21 +201,15 @@ class EmailService {
           email,
           avatarName,
           tempPassword,
-          etherealPassword
+          null // Remove ethereal password reference
         ),
       };
 
       const info = await this.transporter.sendMail(mailOptions);
 
       console.log("✅ Credentials email sent successfully!");
-
-      if (this.isTestAccount) {
-        const previewUrl = nodemailer.getTestMessageUrl(info);
-        console.log("📧 Email Preview URL:", previewUrl);
-        console.log(
-          "💡 Click the above URL to view the email in your browser!"
-        );
-      }
+      console.log("📧 Message ID:", info.messageId);
+      console.log("📧 Sent via:", process.env.SMTP_HOST);
 
       return {
         success: true,
@@ -319,10 +240,8 @@ class EmailService {
 
     try {
       const mailOptions = {
-        from: this.isTestAccount
-          ? '"ChitChat Security" <noreply@ethereal.email>'
-          : process.env.EMAIL_FROM ||
-            '"ChitChat Security" <security@chitchat-app.com>',
+        from: process.env.EMAIL_FROM ||
+          `"ChitChat Security" <${process.env.SMTP_USER}>`,
         to: email,
         subject: "🔒 ChitChat Login Verification",
         html: emailContent,
@@ -332,14 +251,8 @@ class EmailService {
       const info = await this.transporter.sendMail(mailOptions);
 
       console.log("✅ Login OTP email sent successfully!");
-
-      if (this.isTestAccount) {
-        const previewUrl = nodemailer.getTestMessageUrl(info);
-        console.log("📧 Email Preview URL:", previewUrl);
-        console.log(
-          "💡 Click the above URL to view the email in your browser!"
-        );
-      }
+      console.log("📧 Message ID:", info.messageId);
+      console.log("📧 Sent via:", process.env.SMTP_HOST);
 
       return {
         success: true,
@@ -453,16 +366,6 @@ class EmailService {
             <h1 style="color: #00ff00; text-shadow: 0 0 10px #00ff00;">🔒 ChitChat Security System</h1>
             <p>Secure P2P Encrypted Messaging</p>
         </div>
-        
-        ${
-          this.isTestAccount
-            ? `
-        <div class="preview-notice">
-            🔍 <strong>TEST MODE</strong> - This is an Ethereal Email preview
-        </div>
-        `
-            : ""
-        }
 
         <div class="warning">
             ⚠️ SECURITY NOTICE: This OTP is for your eyes only. Do not share with anyone.

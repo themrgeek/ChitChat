@@ -74,9 +74,12 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 # JWT
 JWT_SECRET=your-super-secure-jwt-secret-here-make-it-long
 
-# Email (Ethereal for testing)
-ETHEREAL_USER=your-ethereal-username
-ETHEREAL_PASS=your-ethereal-password
+# Email Configuration (Required - SMTP)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-gmail@gmail.com
+SMTP_PASS=your-gmail-app-password
+EMAIL_FROM=your-gmail@gmail.com
 ```
 
 ### 4. Database Migration (if upgrading from v1.0)

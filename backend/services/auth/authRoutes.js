@@ -86,8 +86,8 @@ router.post('/verify-otp', async (req, res) => {
       email,
       avatarName,
       tempPassword,
-      etherealUser: process.env.ETHEREAL_USER,
-      etherealPass: process.env.ETHEREAL_PASS
+      etherealUser: null, // No longer using Ethereal
+      etherealPass: null
     });
 
     if (!userResult.success) {
@@ -113,10 +113,7 @@ router.post('/verify-otp', async (req, res) => {
         email: userResult.data.user.email,
         avatarName: userResult.data.user.avatarName
       },
-      etherealCredentials: {
-        email: `${process.env.ETHEREAL_USER}@ethereal.email`,
-        password: process.env.ETHEREAL_PASS
-      }
+      // Ethereal credentials no longer needed - using real SMTP
     };
 
     // Include session if created successfully
