@@ -36,7 +36,7 @@ app.get("/", (req, res) => {
 // Socket.io setup
 setupSocket(io);
 
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT) || 3000;
 server.listen(PORT, () => {
   console.log(`🚀 ChitChat server running on port ${PORT}`);
   console.log(`🔒 Real P2P messaging system activated`);

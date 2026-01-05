@@ -138,16 +138,13 @@ Railway provides excellent support for full-stack Node.js applications with buil
 2. **Deploy Your App:**
    - Click "New Project" → "Deploy from GitHub repo"
    - Connect your `ChitChat` repository
-   - Railway will automatically:
-     - Detect your Node.js backend
-     - Set up the build and start commands
-     - Provide a free MongoDB database
+   - Railway will automatically detect the configuration and deploy
 
 3. **Configure Environment Variables:**
    In your Railway project dashboard → "Variables":
    ```
    NODE_ENV=production
-   JWT_SECRET=your-super-secure-random-string-here
+   JWT_SECRET=your-super-secure-random-string-here-make-it-long
    EMAIL_USER=your-email@gmail.com (optional)
    EMAIL_PASS=your-email-app-password (optional)
    EMAIL_FROM=noreply@chitchat-app.com (optional)
@@ -158,7 +155,13 @@ Railway provides excellent support for full-stack Node.js applications with buil
    - The `MONGODB_URI` is set automatically
    - No manual database configuration needed!
 
-5. **Access Your App:**
+5. **Deployment Details:**
+   - **Build Command:** `npm run build` (no-op for this app)
+   - **Start Command:** `npm start` (runs the backend server)
+   - **Port:** Automatically assigned by Railway
+   - The backend serves the frontend statically
+
+6. **Access Your App:**
    - Railway provides a URL like: `https://chitchat-production.up.railway.app`
    - Your app is live with automatic deployments on git push
 
