@@ -5,7 +5,13 @@ class JWTUtils {
   constructor() {
     this.secret = process.env.JWT_SECRET;
     if (!this.secret) {
-      throw new Error('JWT_SECRET environment variable is required');
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('JWT_SECRET environment variable is required in production');
+      } else {
+        // Development fallback - NOT secure for production!
+        console.warn('⚠️  Using development JWT secret - NOT secure for production!');
+        this.secret = 'development-jwt-secret-only-for-testing-do-not-use-in-production-minimum-32-chars';
+      }
     }
   }
 
