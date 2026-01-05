@@ -1,4 +1,4 @@
-const { supabaseAdmin } = require('../../config/supabase');
+const { supabaseAdmin } = require('../../src/config/supabase');
 const jwtUtils = require('../../shared/utils/jwt');
 const { userCache, sessionCache } = require('../../shared/utils/cache');
 const { ServiceResult } = require('../../shared/utils/response');

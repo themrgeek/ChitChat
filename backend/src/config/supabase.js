@@ -1,9 +1,9 @@
 const { createClient } = require('@supabase/supabase-js');
 
 // Supabase configuration
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+let supabaseUrl = process.env.SUPABASE_URL;
+let supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+let supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseServiceKey) {
   if (process.env.NODE_ENV === 'production') {
@@ -11,6 +11,10 @@ if (!supabaseUrl || !supabaseServiceKey) {
   } else {
     console.warn('⚠️  Using mock Supabase configuration for development - Database operations will fail!');
     console.warn('📝 Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for full functionality');
+    // Provide mock values for development so the client can initialize
+    supabaseUrl = supabaseUrl || 'https://mock.supabase.co';
+    supabaseServiceKey = supabaseServiceKey || 'mock-service-key';
+    supabaseAnonKey = supabaseAnonKey || 'mock-anon-key';
   }
 }
 

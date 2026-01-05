@@ -1,5 +1,5 @@
 const jwtUtils = require('../utils/jwt');
-const { supabaseAdmin } = require('../../config/supabase');
+const { supabaseAdmin } = require('../../src/config/supabase');
 const { APIResponse, ServiceResult } = require('../utils/response');
 const { sessionCache } = require('../utils/cache');
 
