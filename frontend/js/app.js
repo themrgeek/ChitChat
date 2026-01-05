@@ -10,7 +10,7 @@ class AppManager {
   initializeApp() {
     this.setupEventListeners();
     this.checkTermsAcceptance();
-    console.log("🚀 DOOT App Initialized");
+    console.log("🚀 ChitChat App Initialized");
   }
 
   // Terms modal methods
@@ -49,11 +49,11 @@ class AppManager {
     localStorage.setItem("doot_terms_accepted_date", new Date().toISOString());
     this.hideTermsModal();
     this.showUserTypeSelection();
-    showQuickToast("Terms accepted. Welcome to DOOT!", "success");
+    showQuickToast("Terms accepted. Welcome to ChitChat!", "success");
   }
 
   declineTerms() {
-    showQuickToast("You must accept the terms to use DOOT.", "error");
+    showQuickToast("You must accept the terms to use ChitChat.", "error");
     // Optionally redirect or disable functionality
   }
 

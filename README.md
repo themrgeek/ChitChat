@@ -1,4 +1,4 @@
-# DOOT - Secure P2P Encrypted Chat System
+# ChitChat - Secure P2P Encrypted Chat System
 
 A secure, end-to-end encrypted peer-to-peer messaging application built with Node.js, Socket.IO, and modern web technologies.
 
@@ -14,7 +14,7 @@ A secure, end-to-end encrypted peer-to-peer messaging application built with Nod
 ## ⚖️ Usage Guidelines & Legal Compliance
 
 ### ✅ Acceptable Use
-DOOT is designed for **legitimate personal and professional communication**. Permitted activities include:
+ChitChat is designed for **legitimate personal and professional communication**. Permitted activities include:
 
 - Personal messaging and communication
 - Professional collaboration and document sharing
@@ -43,7 +43,7 @@ The following activities are strictly prohibited and will result in immediate ac
 ### 🛡️ Legal Compliance
 This service operates in compliance with applicable laws and regulations. Users are responsible for ensuring their use complies with local laws in their jurisdiction. Any illegal use may result in account termination and potential legal action.
 
-**By using DOOT, you agree to use it only for legitimate purposes and comply with our Terms of Service.**
+**By using ChitChat, you agree to use it only for legitimate purposes and comply with our Terms of Service.**
 
 ## Tech Stack
 
@@ -66,7 +66,7 @@ This service operates in compliance with applicable laws and regulations. Users 
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd gupt
+cd ChitChat
 ```
 
 2. Install backend dependencies:
@@ -80,13 +80,13 @@ Create a `.env` file in the backend directory:
 ```env
 NODE_ENV=development
 PORT=3000
-MONGODB_URI=mongodb://localhost:27017/gupt
+MONGODB_URI=mongodb://localhost:27017/chitchat
 JWT_SECRET=your-super-secret-jwt-key-here
 EMAIL_USER=your-email@gmail.com
 EMAIL_PASS=your-app-password
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-EMAIL_FROM=noreply@gupt.com
+EMAIL_FROM=noreply@chitchat-app.com
 ```
 
 4. Start the development server:
@@ -124,6 +124,52 @@ npm run dev
    - **Plan**: Free tier works for development
 
 4. Configure the environment variables as listed above
+
+## Deployment to Railway (Recommended)
+
+Railway provides excellent support for full-stack Node.js applications with built-in MongoDB and automatic deployments.
+
+### Quick Railway Deployment
+
+1. **Create Railway Account:**
+   - Go to [railway.app](https://railway.app)
+   - Sign up with GitHub for easy repository connection
+
+2. **Deploy Your App:**
+   - Click "New Project" → "Deploy from GitHub repo"
+   - Connect your `ChitChat` repository
+   - Railway will automatically:
+     - Detect your Node.js backend
+     - Set up the build and start commands
+     - Provide a free MongoDB database
+
+3. **Configure Environment Variables:**
+   In your Railway project dashboard → "Variables":
+   ```
+   NODE_ENV=production
+   JWT_SECRET=your-super-secure-random-string-here
+   EMAIL_USER=your-email@gmail.com (optional)
+   EMAIL_PASS=your-email-app-password (optional)
+   EMAIL_FROM=noreply@chitchat-app.com (optional)
+   ```
+
+4. **Database Setup:**
+   - Railway automatically creates a MongoDB database
+   - The `MONGODB_URI` is set automatically
+   - No manual database configuration needed!
+
+5. **Access Your App:**
+   - Railway provides a URL like: `https://chitchat-production.up.railway.app`
+   - Your app is live with automatic deployments on git push
+
+### Railway Free Tier Benefits
+
+- ✅ **512MB RAM** - Perfect for ChitChat
+- ✅ **Built-in MongoDB** - No separate database setup
+- ✅ **Automatic deployments** - Push to deploy
+- ✅ **Socket.IO support** - Real-time messaging works perfectly
+- ✅ **Global CDN** - Fast worldwide access
+- ✅ **SSL certificates** - HTTPS included
 
 ## Environment Variables
 
@@ -164,7 +210,7 @@ npm run dev
 ### Project Structure
 
 ```
-gupt/
+ChitChat/
 ├── backend/
 │   ├── src/
 │   │   ├── config/

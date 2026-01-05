@@ -1,6 +1,6 @@
 class SafeManager {
   constructor() {
-    this.dbName = "DOOTSafe";
+    this.dbName = "ChitChatSafe";
     this.dbVersion = 1;
     this.db = null;
     this.initializeDB();
@@ -274,7 +274,7 @@ class SafeManager {
         exportDate: new Date().toISOString(),
         totalFiles: files.length,
         version: "1.0",
-        description: "DOOT Safe Export - Encrypted Files"
+        description: "ChitChat Safe Export - Encrypted Files"
       };
       zip.file("metadata.json", JSON.stringify(metadata, null, 2));
 
