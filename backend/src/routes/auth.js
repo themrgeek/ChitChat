@@ -18,6 +18,11 @@ router.post("/verify-login-otp", authController.verifyLoginOTP);
 
 router.get("/debug", authController.debugState); // For debugging
 router.get("/performance", authController.getPerformanceStats); // Performance monitoring
+router.post("/performance", (req, res) => {
+  // Accept performance data from frontend
+  console.log('📊 Frontend performance data:', req.body);
+  res.json({ received: true });
+});
 router.get("/health", (req, res) => {
   res.json({
     status: "healthy",

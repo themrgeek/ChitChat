@@ -2,6 +2,7 @@ const express = require("express");
 const http = require("http");
 const socketIo = require("socket.io");
 const cors = require("cors");
+const compression = require("compression");
 const path = require("path");
 require("dotenv").config();
 
@@ -15,18 +16,29 @@ const io = socketIo(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"],
+    credentials: true
   },
-  // Performance optimizations
-  pingTimeout: 60000, // 60 seconds
-  pingInterval: 25000, // 25 seconds
-  transports: ['websocket', 'polling'], // Prefer websockets
-  allowEIO3: true, // Allow Engine.IO v3 clients
+  // Ultra-fast Socket.IO optimizations
+  pingTimeout: 30000, // Reduced from 60s for faster disconnect detection
+  pingInterval: 15000, // Reduced from 25s for more responsive connections
+  transports: ["websocket", "polling"], // Prefer websockets for speed
+  allowEIO3: true,
+  // Additional performance optimizations
+  connectTimeout: 10000, // Faster connection timeout
+  maxHttpBufferSize: 1e6, // 1MB limit for messages
+  httpCompression: true, // Enable HTTP compression
+  perMessageDeflate: {
+    threshold: 1024, // Compress messages > 1KB
+    zlibDeflateOptions: {
+      level: 6 // Compression level
+    }
+  }
 });
 
 // Response time logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
-  res.on('finish', () => {
+  res.on("finish", () => {
     const duration = Date.now() - start;
     console.log(`⚡ ${req.method} ${req.originalUrl} - ${duration}ms`);
   });
@@ -34,22 +46,54 @@ app.use((req, res, next) => {
 });
 
 // Performance optimizations
-app.set('trust proxy', 1); // Trust first proxy for faster header parsing
-app.disable('x-powered-by'); // Remove X-Powered-By header for security/performance
+app.set("trust proxy", 1);
+app.disable("x-powered-by");
+
+// Add compression for all responses (major performance boost)
+app.use(compression({
+  level: 6, // Good balance of speed vs compression
+  threshold: 1024, // Only compress responses > 1KB
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) return false;
+    return compression.filter(req, res);
+  }
+}));
 
 // Middleware (optimized order for performance)
 app.use(cors({
-  origin: true, // Allow all origins for now
-  credentials: true
+  origin: true,
+  credentials: true,
+  maxAge: 86400 // Cache preflight for 24 hours
 }));
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Static file serving with caching headers
-app.use(express.static(path.join(__dirname, "../frontend"), {
-  maxAge: '1h', // Cache static files for 1 hour
-  etag: true
+// Optimize JSON parsing with smaller limits for better performance
+app.use(express.json({
+  limit: "10mb", // Reduced from 50mb
+  strict: true
 }));
+app.use(express.urlencoded({
+  extended: false, // Faster than extended: true
+  limit: "10mb"
+}));
+
+// Aggressive static file caching for maximum performance
+app.use(
+  express.static(path.join(__dirname, "../frontend"), {
+    maxAge: "24h", // Cache for 24 hours (was 1 hour)
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, path) => {
+      // Different cache strategies for different file types
+      if (path.endsWith('.js') || path.endsWith('.css')) {
+        res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+      } else if (path.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 hour for HTML
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=86400'); // 24 hours for others
+      }
+    }
+  })
+);
 
 // Routes
 app.use("/api/auth", authRoutes);

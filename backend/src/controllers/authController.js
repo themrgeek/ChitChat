@@ -1,16 +1,24 @@
 const emailService = require("../config/emailService");
 
-// Simple in-memory storage for demo (optimized)
+// Ultra-fast in-memory storage with advanced caching
 const users = new Map();
 const otpStore = new Map();
 
-// User lookup cache for faster operations
-const userCache = new Map();
+// Multi-level caching for maximum performance
+const userCache = new Map(); // LRU-style cache for user lookups
+const emailToUserCache = new Map(); // Email to user mapping
+const userOnlineCache = new Map(); // Online status cache
 
-// Performance tracking
+// Performance tracking with detailed metrics
 let cacheHits = 0;
 let cacheMisses = 0;
 let expiredOTPsCleaned = 0;
+let totalUserLookups = 0;
+let avgLookupTime = 0;
+
+// Cache size limits for memory efficiency
+const MAX_USER_CACHE_SIZE = 1000;
+const MAX_EMAIL_CACHE_SIZE = 500;
 
 // Background job queues
 const emailJobQueue = [];
@@ -21,12 +29,88 @@ const otpJobQueue = [];
 let isProcessingOTPJobs = false;
 let otpJobStats = { processed: 0, failed: 0, avgTime: 0, totalJobs: 0 };
 
-// Cache management
-function invalidateUserCache(avatarName) {
-  userCache.delete(avatarName);
+// Ultra-fast cache management functions
+function getUser(avatarName) {
+  const start = Date.now();
+  totalUserLookups++;
+
+  // Check cache first
+  if (userCache.has(avatarName)) {
+    cacheHits++;
+    const cached = userCache.get(avatarName);
+    // Update LRU by moving to end
+    userCache.delete(avatarName);
+    userCache.set(avatarName, cached);
+    avgLookupTime = ((avgLookupTime * (totalUserLookups - 1)) + (Date.now() - start)) / totalUserLookups;
+    return cached;
+  }
+
+  // Cache miss - get from main store
+  cacheMisses++;
+  const user = users.get(avatarName);
+
+  if (user) {
+    // Add to cache (LRU eviction)
+    if (userCache.size >= MAX_USER_CACHE_SIZE) {
+      const firstKey = userCache.keys().next().value;
+      userCache.delete(firstKey);
+    }
+    userCache.set(avatarName, user);
+  }
+
+  avgLookupTime = ((avgLookupTime * (totalUserLookups - 1)) + (Date.now() - start)) / totalUserLookups;
+  return user;
 }
 
-// Periodic cleanup of expired OTPs and cache (every 5 minutes)
+function invalidateUserCache(avatarName) {
+  userCache.delete(avatarName);
+  // Also invalidate email mapping if needed
+  const user = users.get(avatarName);
+  if (user && user.email) {
+    emailToUserCache.delete(user.email);
+  }
+}
+
+function addUserToCache(user) {
+  // Update email mapping cache
+  if (user.email) {
+    if (emailToUserCache.size >= MAX_EMAIL_CACHE_SIZE) {
+      const firstKey = emailToUserCache.keys().next().value;
+      emailToUserCache.delete(firstKey);
+    }
+    emailToUserCache.set(user.email, user.avatarName);
+  }
+
+  // Update user cache
+  if (userCache.size >= MAX_USER_CACHE_SIZE) {
+    const firstKey = userCache.keys().next().value;
+    userCache.delete(firstKey);
+  }
+  userCache.set(user.avatarName, user);
+}
+
+// Cache preloading for faster startup
+function preloadCache() {
+  console.log('⚡ Preloading user cache for faster lookups...');
+  let preloaded = 0;
+
+  // Preload active users into cache
+  for (const [avatarName, user] of users.entries()) {
+    if (preloaded < MAX_USER_CACHE_SIZE / 2) { // Preload half the cache
+      userCache.set(avatarName, user);
+      if (user.email) {
+        emailToUserCache.set(user.email, avatarName);
+      }
+      preloaded++;
+    } else {
+      break;
+    }
+  }
+
+  console.log(`✅ Preloaded ${preloaded} users into cache`);
+}
+
+// Periodic maintenance (every 5 minutes)
 setInterval(() => {
   const now = Date.now();
   let cleanedOTPs = 0;
@@ -42,7 +126,7 @@ setInterval(() => {
 
   // Clean stale cache entries (older than 30 minutes)
   for (const [key, cacheEntry] of userCache.entries()) {
-    if (now - cacheEntry.timestamp > 30 * 60 * 1000) {
+    if (now - (cacheEntry.lastAccessed || 0) > 30 * 60 * 1000) {
       userCache.delete(key);
       cleanedCache++;
     }
@@ -53,7 +137,15 @@ setInterval(() => {
   if (cleanedOTPs > 0 || cleanedCache > 0) {
     console.log(`🧹 Cleaned up ${cleanedOTPs} OTPs and ${cleanedCache} cache entries`);
   }
+
+  // Log performance stats
+  const hitRate = totalUserLookups > 0 ? (cacheHits / totalUserLookups * 100).toFixed(1) : '0.0';
+  console.log(`📊 Cache: ${cacheHits} hits, ${cacheMisses} misses (${hitRate}% hit rate, ${Math.round(avgLookupTime)}ms avg)`);
+
 }, 5 * 60 * 1000); // 5 minutes
+
+// Initialize cache on startup
+setTimeout(preloadCache, 1000); // Preload after server starts
 
 // Simple avatar generator
 class SimpleAvatarGenerator {
@@ -258,6 +350,7 @@ const authController = {
       };
 
       users.set(avatarName, user);
+      addUserToCache(user); // Add to optimized cache
 
       console.log("✅ New user created instantly:", avatarName);
       console.log("   Ethereal Email:", testAccount.email);
@@ -304,7 +397,7 @@ const authController = {
         return res.status(400).json({ error: "Avatar name is required" });
       }
 
-      const user = users.get(avatarName);
+      const user = getUser(avatarName);
 
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -326,7 +419,7 @@ const authController = {
         return res.status(400).json({ error: "Avatar name is required" });
       }
 
-      const user = users.get(avatarName);
+      const user = getUser(avatarName);
 
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -510,7 +603,7 @@ const authController = {
           .json({ error: "Avatar name and password are required" });
       }
 
-      const user = users.get(avatarName);
+      const user = getUser(avatarName);
 
       if (!user) {
         return res
@@ -571,7 +664,7 @@ const authController = {
       }
 
       // Find user by avatar name (more reliable than email since emails are shared)
-      const user = users.get(avatarName);
+      const user = getUser(avatarName);
 
       if (!user) {
         return res.status(400).json({ error: "User not found" });
@@ -649,10 +742,14 @@ const authController = {
         stats: otpJobStats
       },
       cache: {
-        size: userCache.size,
+        userCacheSize: userCache.size,
+        emailCacheSize: emailToUserCache.size,
+        onlineCacheSize: userOnlineCache.size,
         hits: cacheHits,
         misses: cacheMisses,
-        hitRate: cacheHits + cacheMisses > 0 ? (cacheHits / (cacheHits + cacheMisses) * 100).toFixed(1) + '%' : '0%'
+        totalLookups: totalUserLookups,
+        hitRate: cacheHits + cacheMisses > 0 ? (cacheHits / (cacheHits + cacheMisses) * 100).toFixed(1) + '%' : '0%',
+        avgLookupTime: Math.round(avgLookupTime) + 'ms'
       }
     });
   },

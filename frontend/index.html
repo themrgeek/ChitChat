@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ChitChat - Secure P2P Messaging</title>
+
+    <!-- Preconnect to external domains for faster loading -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="dns-prefetch" href="//ethereal.email">
+
+    <!-- Aggressive caching for styles -->
     <link rel="stylesheet" href="css/styles.css" />
     <link
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -654,14 +661,17 @@
       </div>
     </div>
 
+    <!-- Critical scripts loaded immediately -->
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/chat.js"></script>
-    <script src="js/crypto.js"></script>
-    <script src="js/safe.js"></script>
-    <script src="js/app.js"></script>
+
+    <!-- Non-critical scripts loaded with defer for better performance -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+    <script src="js/auth.js" defer></script>
+    <script src="js/chat.js" defer></script>
+    <script src="js/crypto.js" defer></script>
+    <script src="js/safe.js" defer></script>
+    <script src="js/app.js" defer></script>
 
     <style>
       /* Additional CSS for new elements */
@@ -1436,6 +1446,32 @@
       }
     </style>
 
+    <!-- Service Worker Registration for Ultra-fast Caching -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('🚀 ChitChat Service Worker registered:', registration.scope);
+
+              // Handle updates
+              registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // New version available
+                    showQuickToast('App updated! Refresh for latest features.', 'info', 5000);
+                  }
+                });
+              });
+            })
+            .catch((error) => {
+              console.log('❌ Service Worker registration failed:', error);
+            });
+        });
+      }
+    </script>
+
     <script>
       // Enhanced utility functions for UI
       function showQuickToast(message, type = "info", duration = 3000) {
@@ -1617,6 +1653,55 @@
           socketStatus.textContent = "Socket: Not initialized";
         }
       }
+
+      // Performance monitoring
+      window.performanceData = {
+        pageLoadTime: 0,
+        apiResponseTimes: [],
+        socketConnectionTime: 0,
+        cacheHits: 0
+      };
+
+      // Measure page load time
+      window.addEventListener('load', () => {
+        const loadTime = performance.now();
+        window.performanceData.pageLoadTime = loadTime;
+        console.log(`⚡ Page loaded in ${loadTime.toFixed(2)}ms`);
+
+        // Report performance to server (optional)
+        if ('sendBeacon' in navigator) {
+          navigator.sendBeacon('/api/auth/performance', JSON.stringify({
+            type: 'pageLoad',
+            loadTime: loadTime,
+            timestamp: Date.now(),
+            userAgent: navigator.userAgent
+          }));
+        }
+      });
+
+      // Monitor fetch requests
+      const originalFetch = window.fetch;
+      window.fetch = function(...args) {
+        const start = performance.now();
+        const promise = originalFetch.apply(this, args);
+
+        promise.then(response => {
+          const duration = performance.now() - start;
+          window.performanceData.apiResponseTimes.push({
+            url: args[0],
+            method: args[1]?.method || 'GET',
+            duration: duration,
+            status: response.status
+          });
+
+          console.log(`🌐 ${args[1]?.method || 'GET'} ${args[0]} - ${duration.toFixed(2)}ms (${response.status})`);
+        }).catch(error => {
+          const duration = performance.now() - start;
+          console.log(`❌ ${args[1]?.method || 'GET'} ${args[0]} - ${duration.toFixed(2)}ms (failed)`);
+        });
+
+        return promise;
+      };
 
       // Update debug info every 3 seconds
       setInterval(checkAuthStatus, 3000);
