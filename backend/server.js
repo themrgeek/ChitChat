@@ -132,6 +132,24 @@ app.use(
   }),
 );
 
+// ⚡ PERFORMANCE: Response timing middleware
+app.use((req, res, next) => {
+  const startTime = Date.now();
+  res.on("finish", () => {
+    const duration = Date.now() - startTime;
+    if (req.path.startsWith("/api")) {
+      console.log(`⚡ ${req.method} ${req.path} - ${duration}ms`);
+    }
+  });
+  // Add timing header
+  const originalJson = res.json.bind(res);
+  res.json = (body) => {
+    res.setHeader("X-Response-Time", `${Date.now() - startTime}ms`);
+    return originalJson(body);
+  };
+  next();
+});
+
 // Body parsing
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));

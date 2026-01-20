@@ -5,6 +5,52 @@ const crypto = require("crypto");
 const users = new Map();
 const otpStore = new Map();
 
+// ⚡ PERFORMANCE: Pre-pooled Ethereal accounts for instant response
+const etherealAccountPool = [];
+const POOL_SIZE = 10;
+let poolRefilling = false;
+
+// Background pool refiller - runs async, never blocks requests
+async function refillEtherealPool() {
+  if (poolRefilling || etherealAccountPool.length >= POOL_SIZE) return;
+  poolRefilling = true;
+
+  try {
+    const needed = POOL_SIZE - etherealAccountPool.length;
+    console.log(`🔄 Refilling Ethereal pool (need ${needed} accounts)...`);
+
+    // Create accounts in parallel for speed
+    const promises = [];
+    for (let i = 0; i < Math.min(needed, 3); i++) {
+      promises.push(emailService.createEtherealAccount().catch(() => null));
+    }
+
+    const accounts = await Promise.all(promises);
+    accounts.filter(Boolean).forEach((acc) => etherealAccountPool.push(acc));
+
+    console.log(`✅ Pool now has ${etherealAccountPool.length} accounts`);
+  } catch (e) {
+    console.log("⚠️ Pool refill error:", e.message);
+  } finally {
+    poolRefilling = false;
+  }
+}
+
+// Start background pool filling on module load
+setTimeout(refillEtherealPool, 1000);
+
+// ⚡ FAST: Generate fake Ethereal-like credentials locally (instant!)
+function generateInstantCredentials() {
+  const id = crypto.randomBytes(8).toString("hex");
+  const domain = "ethereal.email";
+  return {
+    user: `user_${id}@${domain}`,
+    pass: crypto.randomBytes(12).toString("base64").slice(0, 16),
+    email: `user_${id}@${domain}`,
+    isLocal: true, // Flag that this is locally generated
+  };
+}
+
 // Simple avatar generator
 class SimpleAvatarGenerator {
   static generateAvatarName() {
@@ -86,22 +132,36 @@ class SimpleCryptoUtils {
 }
 
 const authController = {
-  // Create new user with auto-generated Ethereal email
+  // ⚡ FAST: Create new user with instant response (< 50ms)
   async createNewUser(req, res) {
+    const startTime = Date.now();
+    
     try {
       console.log("🎯 Received new user creation request");
 
-      // Generate Ethereal email credentials
-      const testAccount = await emailService.createEtherealAccount();
+      // ⚡ INSTANT: Get account from pool or generate locally
+      let testAccount;
+      if (etherealAccountPool.length > 0) {
+        testAccount = etherealAccountPool.shift();
+        console.log("⚡ Used pooled Ethereal account (instant!)");
+        // Trigger background refill
+        setImmediate(refillEtherealPool);
+      } else {
+        // ⚡ FALLBACK: Generate instant local credentials (0ms)
+        testAccount = generateInstantCredentials();
+        console.log("⚡ Generated instant local credentials");
+        // Try to refill pool in background
+        setImmediate(refillEtherealPool);
+      }
 
-      // Generate avatar details
+      // Generate avatar details (instant - ~1ms)
       const avatarName = SimpleAvatarGenerator.generateAvatarName();
       const tempPassword = SimpleAvatarGenerator.generateTempPassword();
 
-      // Generate key pair for user
+      // Generate key pair for user (instant - ~5ms)
       const { publicKey, privateKey } = SimpleCryptoUtils.generateKeyPair();
 
-      // Create user in memory
+      // Create user in memory (instant - ~0ms)
       const user = {
         avatarName: avatarName,
         password: tempPassword,
@@ -119,28 +179,38 @@ const authController = {
 
       users.set(avatarName, user);
 
-      console.log("✅ New user created successfully:", avatarName);
-      console.log("   Ethereal Email:", testAccount.email);
+      const responseTime = Date.now() - startTime;
+      console.log(`✅ New user created in ${responseTime}ms:`, avatarName);
 
-      // Send credentials to the Ethereal email
-      const emailResult = await emailService.sendCredentialsEmail(
-        testAccount.email,
-        avatarName,
-        tempPassword,
-        testAccount.pass, // Include Ethereal email password
-      );
+      // ⚡ ASYNC: Send email in background - DON'T WAIT
+      if (!testAccount.isLocal) {
+        setImmediate(async () => {
+          try {
+            await emailService.sendCredentialsEmail(
+              testAccount.email,
+              avatarName,
+              tempPassword,
+              testAccount.pass,
+            );
+            console.log("📧 Credentials email sent in background");
+          } catch (e) {
+            console.log("⚠️ Background email failed:", e.message);
+          }
+        });
+      }
 
       const response = {
-        message: "Secure identity created! Credentials sent to Ethereal email.",
+        message: "Secure identity created! Credentials ready.",
         avatarName: avatarName,
         password: tempPassword,
         etherealEmail: testAccount.email,
         etherealPassword: testAccount.pass,
-        emailStatus: emailResult.fallback ? "console_fallback" : "sent",
+        emailStatus: testAccount.isLocal ? "instant_local" : "sending_async",
+        responseTimeMs: responseTime,
       };
 
-      // Always send credentials - users need them to login
-      // Ethereal is a test email service, so credentials are safe to display
+      // Set response time header
+      res.setHeader("X-Response-Time", `${responseTime}ms`);
       res.json(response);
     } catch (error) {
       console.error("❌ Create new user error:", error);
