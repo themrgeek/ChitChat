@@ -1,5 +1,7 @@
 # ChitChat (DOOT) - Secure P2P Encrypted Chat System
 
+https://chitchat-production-a7b2.up.railway.app/
+
 A secure, end-to-end encrypted peer-to-peer messaging application built with Node.js, Socket.IO, React, and Tailwind CSS.
 
 ## 🚀 Version 2.0 Updates
