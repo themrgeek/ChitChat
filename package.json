@@ -1,0 +1,28 @@
+{
+  "name": "chitchat-web",
+  "version": "1.0.1",
+  "description": "ChitChat - Secure P2P Encrypted Messaging Web Application",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "cd backend && npm start",
+    "dev": "cd backend && npm run dev",
+    "install:backend": "cd backend && npm install",
+    "build": "echo 'No build step required'",
+    "postinstall": "cd backend && npm install"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/chitchat-web.git"
+  },
+  "keywords": [
+    "chat",
+    "messaging",
+    "p2p",
+    "encrypted",
+    "secure"
+  ],
+  "license": "MIT"
+}
