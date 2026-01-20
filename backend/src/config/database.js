@@ -7,11 +7,24 @@ const connectDB = async () => {
       process.env.MONGO_URI ||
       "mongodb://localhost:27017/chitchat";
 
+    const isProduction = process.env.NODE_ENV === "production";
+
     const options = {
-      maxPoolSize: 10,
-      serverSelectionTimeoutMS: 5000,
+      // Connection pool - more connections for production
+      maxPoolSize: isProduction ? 50 : 10,
+      minPoolSize: isProduction ? 5 : 1,
+      // Timeouts
+      serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
-      family: 4,
+      connectTimeoutMS: 10000,
+      // Performance
+      family: 4, // Use IPv4
+      // Write concern for better performance
+      w: "majority",
+      retryWrites: true,
+      retryReads: true,
+      // Compression
+      compressors: ["zlib"],
     };
 
     const conn = await mongoose.connect(mongoURI, options);

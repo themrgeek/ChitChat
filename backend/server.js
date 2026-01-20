@@ -44,10 +44,17 @@ const io = socketIo(server, {
     methods: ["GET", "POST"],
     credentials: true,
   },
-  transports: ["websocket", "polling"],
-  pingTimeout: 60000,
-  pingInterval: 25000,
+  // PRODUCTION OPTIMIZATION: Prefer WebSocket, fallback to polling only if needed
+  transports: isProduction ? ["websocket"] : ["websocket", "polling"],
+  allowUpgrades: true,
+  upgradeTimeout: 10000,
+  pingTimeout: 30000,
+  pingInterval: 15000,
   maxHttpBufferSize: 10e6, // 10MB for file transfers
+  // Reduce connection overhead
+  perMessageDeflate: {
+    threshold: 1024, // Only compress messages > 1KB
+  },
 });
 
 // ==================== SECURITY MIDDLEWARE ====================
@@ -110,13 +117,16 @@ if (isProduction) {
   app.set("trust proxy", 1);
 }
 
-// Compression
+// Compression - optimized for production
 app.use(
   compression({
-    level: 6,
-    threshold: 1024,
+    level: isProduction ? 6 : 1, // Higher compression in production
+    threshold: 512, // Compress anything > 512 bytes
     filter: (req, res) => {
       if (req.headers["x-no-compression"]) return false;
+      // Don't compress already compressed formats
+      const contentType = res.getHeader("Content-Type") || "";
+      if (/image|video|audio/.test(contentType)) return false;
       return compression.filter(req, res);
     },
   }),
@@ -133,14 +143,37 @@ const legacyFrontendPath = path.join(__dirname, "../frontend");
 const fs = require("fs");
 const hasReactBuild = fs.existsSync(clientBuildPath);
 
-// Serve static files with caching
+// Serve static files with aggressive caching for production
 app.use(
   express.static(hasReactBuild ? clientBuildPath : legacyFrontendPath, {
-    maxAge: isProduction ? "1d" : 0,
+    maxAge: isProduction ? "1y" : 0, // 1 year cache for hashed assets
     etag: true,
     lastModified: true,
+    immutable: isProduction, // Assets with hash won't change
+    index: false, // Don't serve index.html from static (SPA handles it)
   }),
 );
+
+// Cache control for different asset types
+app.use((req, res, next) => {
+  if (isProduction) {
+    // Long cache for hashed assets (JS, CSS with hash in filename)
+    if (req.path.match(/\.(js|css)$/) && req.path.includes("-")) {
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    }
+    // Medium cache for images and fonts
+    else if (
+      req.path.match(/\.(png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)
+    ) {
+      res.setHeader("Cache-Control", "public, max-age=604800"); // 1 week
+    }
+    // No cache for HTML (SPA needs fresh content)
+    else if (req.path.match(/\.html$/) || req.path === "/") {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    }
+  }
+  next();
+});
 
 // ==================== API ROUTES ====================
 

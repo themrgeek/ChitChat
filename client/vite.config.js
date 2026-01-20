@@ -16,7 +16,6 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
         secure: false,
-        // Handle WebSocket errors gracefully
         configure: (proxy) => {
           proxy.on("error", (err) => {
             console.log("Proxy error:", err.message);
@@ -34,14 +33,35 @@ export default defineConfig({
     outDir: "dist",
     sourcemap: false,
     minify: "esbuild",
+    target: "es2020", // Modern browsers for smaller bundles
+    cssMinify: true,
+    // Optimize chunk size
+    chunkSizeWarningLimit: 500,
     rollupOptions: {
       output: {
+        // Better code splitting for caching
         manualChunks: {
-          vendor: ["react", "react-dom", "react-router-dom"],
+          vendor: ["react", "react-dom"],
+          router: ["react-router-dom"],
           socket: ["socket.io-client"],
           crypto: ["crypto-js"],
+          ui: ["lucide-react", "zustand"],
         },
+        // Optimize asset file names for caching
+        assetFileNames: "assets/[name]-[hash][extname]",
+        chunkFileNames: "assets/[name]-[hash].js",
+        entryFileNames: "assets/[name]-[hash].js",
       },
     },
+  },
+  // Optimize dependencies
+  optimizeDeps: {
+    include: [
+      "react",
+      "react-dom",
+      "react-router-dom",
+      "socket.io-client",
+      "zustand",
+    ],
   },
 });

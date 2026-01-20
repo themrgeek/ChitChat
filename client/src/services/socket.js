@@ -11,14 +11,19 @@ class SocketService {
 
   connect() {
     const socketUrl = window.location.origin;
+    const isProduction = window.location.protocol === "https:";
 
     this.socket = io(socketUrl, {
-      transports: ["websocket", "polling"],
+      // PRODUCTION: Use WebSocket only for faster connection
+      transports: isProduction ? ["websocket"] : ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: this.maxReconnectAttempts,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000,
+      reconnectionDelay: 500, // Faster initial reconnect
+      reconnectionDelayMax: 3000,
+      timeout: 10000, // Faster timeout
+      // Reduce overhead
+      forceNew: false,
+      multiplex: true,
     });
 
     this.setupListeners();
