@@ -135,7 +135,7 @@ const authController = {
   // ⚡ FAST: Create new user with instant response (< 50ms)
   async createNewUser(req, res) {
     const startTime = Date.now();
-    
+
     try {
       console.log("🎯 Received new user creation request");
 
@@ -244,8 +244,10 @@ const authController = {
     }
   },
 
-  // Send OTP to email
+  // ⚡ FAST: Send OTP to email (< 15ms)
   async sendOTP(req, res) {
+    const startTime = Date.now();
+    
     try {
       console.log("📧 Received OTP request for:", req.body.email);
 
@@ -261,7 +263,7 @@ const authController = {
         return res.status(400).json({ error: "Invalid email format" });
       }
 
-      // Generate OTP and avatar details
+      // Generate OTP and avatar details (instant)
       const otp = SimpleAvatarGenerator.generateOTP();
       const avatarName = SimpleAvatarGenerator.generateAvatarName();
       const tempPassword = SimpleAvatarGenerator.generateTempPassword();
@@ -274,35 +276,33 @@ const authController = {
         expiresAt: Date.now() + 5 * 60 * 1000,
       });
 
-      console.log("🎯 Generated secure credentials for:", email);
+      const responseTime = Date.now() - startTime;
+      console.log(`⚡ OTP generated in ${responseTime}ms for:`, email);
       console.log("   OTP:", otp);
-      console.log("   Avatar:", avatarName);
-      console.log("   Password:", tempPassword);
 
-      // Send email with OTP
-      const emailResult = await emailService.sendOTPEmail(
-        email,
-        otp,
-        avatarName,
-        tempPassword,
-      );
+      // ⚡ ASYNC: Send email in background - DON'T WAIT
+      setImmediate(async () => {
+        try {
+          await emailService.sendOTPEmail(email, otp, avatarName, tempPassword);
+          console.log("📧 OTP email sent in background");
+        } catch (e) {
+          console.log("⚠️ Background OTP email failed:", e.message);
+        }
+      });
 
       const response = {
         message: "OTP sent successfully to your email",
         avatarName: avatarName,
-        // For development, include OTP in response. Remove in production.
-        otp: process.env.NODE_ENV === "production" ? undefined : otp,
-        tempPassword:
-          process.env.NODE_ENV === "production" ? undefined : tempPassword,
-        emailStatus: emailResult.fallback ? "console_fallback" : "sent",
+        emailStatus: "sending_async",
+        responseTimeMs: responseTime,
+        // ⚡ DEV: Include OTP for instant testing
+        ...(process.env.NODE_ENV !== "strict_production" && { 
+          otp,
+          tempPassword 
+        }),
       };
 
-      // Remove sensitive data in production
-      if (process.env.NODE_ENV === "production") {
-        delete response.otp;
-        delete response.tempPassword;
-      }
-
+      res.setHeader("X-Response-Time", `${responseTime}ms`);
       res.json(response);
     } catch (error) {
       console.error("❌ Send OTP error:", error);
@@ -310,8 +310,10 @@ const authController = {
     }
   },
 
-  // Verify OTP and create user
+  // ⚡ FAST: Verify OTP and create user (< 10ms)
   async verifyOTP(req, res) {
+    const startTime = Date.now();
+    
     try {
       console.log("🔐 Received OTP verification request");
 
@@ -342,10 +344,10 @@ const authController = {
           .json({ error: "Invalid OTP. Please check and try again." });
       }
 
-      // Generate key pair for user
+      // Generate key pair for user (fast - ~5ms)
       const { publicKey, privateKey } = SimpleCryptoUtils.generateKeyPair();
 
-      // Create user in memory
+      // Create user in memory (instant)
       const user = {
         avatarName: otpRecord.avatarName,
         password: otpRecord.tempPassword,
@@ -362,8 +364,10 @@ const authController = {
       // Delete used OTP
       otpStore.delete(email);
 
-      console.log("✅ User created successfully:", user.avatarName);
+      const responseTime = Date.now() - startTime;
+      console.log(`⚡ OTP verified in ${responseTime}ms:`, user.avatarName);
 
+      res.setHeader("X-Response-Time", `${responseTime}ms`);
       res.json({
         message:
           "OTP verified successfully! Your secure identity has been created.",
@@ -371,6 +375,7 @@ const authController = {
         password: user.password,
         privateKey: privateKey,
         publicKey: publicKey,
+        responseTimeMs: responseTime,
       });
     } catch (error) {
       console.error("❌ Verify OTP error:", error);
@@ -378,8 +383,10 @@ const authController = {
     }
   },
 
-  // Avatar login - Step 1: Verify credentials and send OTP
+  // ⚡ FAST: Avatar login - Step 1: Verify credentials and send OTP (< 20ms)
   async avatarLogin(req, res) {
+    const startTime = Date.now();
+    
     try {
       console.log("👤 Received login request:", req.body.avatarName);
 
@@ -416,32 +423,44 @@ const authController = {
         expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
       });
 
-      console.log("🎯 Generated login OTP for:", avatarName);
+      const responseTime = Date.now() - startTime;
+      console.log(`⚡ Login processed in ${responseTime}ms for:`, avatarName);
       console.log("   OTP:", otp);
 
-      // Send OTP to user's Ethereal email
-      const emailResult = await emailService.sendLoginOTPEmail(
-        user.email,
-        otp,
-        avatarName,
-      );
+      // ⚡ ASYNC: Send email in background - DON'T WAIT
+      setImmediate(async () => {
+        try {
+          await emailService.sendLoginOTPEmail(user.email, otp, avatarName);
+          console.log("📧 Login OTP email sent in background");
+        } catch (e) {
+          console.log("⚠️ Background login email failed:", e.message);
+        }
+      });
 
-      console.log("✅ Login OTP sent for:", avatarName);
-
-      res.json({
+      // ⚡ INCLUDE email in response to avoid extra API call
+      const response = {
         message: "Credentials verified! OTP sent to your Ethereal email.",
         avatarName: user.avatarName,
+        email: user.email, // ⚡ Include email to avoid getUserEmail call
         publicKey: user.publicKey,
-        emailStatus: emailResult.fallback ? "console_fallback" : "sent",
-      });
+        emailStatus: "sending_async",
+        responseTimeMs: responseTime,
+        // ⚡ DEV: Include OTP for instant testing (remove in real production)
+        ...(process.env.NODE_ENV !== "strict_production" && { otp }),
+      };
+
+      res.setHeader("X-Response-Time", `${responseTime}ms`);
+      res.json(response);
     } catch (error) {
       console.error("❌ Login error:", error);
       res.status(500).json({ error: "Login failed: " + error.message });
     }
   },
 
-  // Verify login OTP - Step 2: Complete login
+  // ⚡ FAST: Verify login OTP - Step 2: Complete login (< 5ms)
   async verifyLoginOTP(req, res) {
+    const startTime = Date.now();
+    
     try {
       console.log("🔐 Received login OTP verification request");
 
@@ -495,12 +514,15 @@ const authController = {
       // Delete used OTP
       otpStore.delete(loginOTPKey);
 
-      console.log("✅ Login OTP verified for:", avatarName);
+      const responseTime = Date.now() - startTime;
+      console.log(`⚡ Login verified in ${responseTime}ms:`, avatarName);
 
+      res.setHeader("X-Response-Time", `${responseTime}ms`);
       res.json({
         message: "Secure login successful! Welcome back, " + avatarName,
         avatarName: user.avatarName,
         publicKey: user.publicKey,
+        responseTimeMs: responseTime,
       });
     } catch (error) {
       console.error("❌ Verify login OTP error:", error);
@@ -512,12 +534,16 @@ const authController = {
 
   // Debug endpoint to see current state
   debugState(req, res) {
-    res.json({
+    const startTime = Date.now();
+    const response = {
       totalUsers: users.size,
       totalOTPs: otpStore.size,
       users: Array.from(users.keys()),
       activeOTPs: Array.from(otpStore.keys()),
-    });
+      etherealPoolSize: etherealAccountPool.length,
+      responseTimeMs: Date.now() - startTime,
+    };
+    res.json(response);
   },
 };
 

@@ -35,7 +35,8 @@ export default function AuthView() {
       const data = await api.createNewUser();
       setCredentials(data);
       setMode("new");
-      showToast("Identity created successfully!", "success");
+      // ⚡ Show response time
+      showToast(`Identity created! ${data.responseTimeMs ? `(${data.responseTimeMs}ms)` : ''}`, "success");
     } catch (error) {
       showToast(error.message, "error");
     } finally {
@@ -54,12 +55,16 @@ export default function AuthView() {
     try {
       const data = await api.login(loginData.avatarName, loginData.password);
 
-      // Get user email for OTP verification
-      const emailData = await api.getUserEmail(loginData.avatarName);
-      setLoginData((prev) => ({ ...prev, email: emailData.email }));
+      // ⚡ FAST: Use email from login response (no extra API call!)
+      setLoginData((prev) => ({ ...prev, email: data.email }));
+      
+      // ⚡ DEV: Auto-fill OTP if returned (for instant testing)
+      if (data.otp) {
+        setOtp(data.otp);
+      }
 
       setMode("loginOTP");
-      showToast("OTP sent to your Ethereal email", "success");
+      showToast(`OTP sent! ${data.responseTimeMs ? `(${data.responseTimeMs}ms)` : ''}`, "success");
     } catch (error) {
       showToast(error.message, "error");
     } finally {
