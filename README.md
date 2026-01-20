@@ -9,6 +9,8 @@ A secure, end-to-end encrypted peer-to-peer messaging application built with Nod
 - **Improved Security**: Proper cryptographic key generation using Node.js crypto
 - **Railway Optimized**: Ready for deployment to Railway with proper build configs
 - **Faster Build**: Vite for lightning-fast development and production builds
+- **Audio/Video Calls**: WebRTC-based audio and video calling with TURN server support
+- **React Native App**: Full mobile app with the same features
 
 ## Features
 
@@ -19,6 +21,8 @@ A secure, end-to-end encrypted peer-to-peer messaging application built with Nod
 - 📁 **Secure File Storage**: Encrypted file sharing capabilities
 - 🌐 **Real-time Communication**: Instant messaging with Socket.IO
 - 📱 **Mobile Responsive**: Optimized for all screen sizes
+- 📞 **Audio Calls**: WebRTC-based peer-to-peer audio calls
+- 📹 **Video Calls**: High-quality video calls with camera switching
 
 ## ⚖️ Usage Guidelines & Legal Compliance
 
@@ -63,9 +67,47 @@ This service operates in compliance with applicable laws and regulations. Users 
 - **Backend**: Node.js, Express.js, Socket.IO
 - **Database**: In-memory (demo) / MongoDB ready
 - **Frontend**: React 18, Tailwind CSS, Vite
+- **Mobile**: React Native with Expo
 - **State Management**: Zustand
 - **Encryption**: CryptoJS (frontend), Node.js crypto (backend)
 - **Email Service**: Nodemailer with Ethereal
+- **Audio/Video**: WebRTC with STUN/TURN servers
+- **Security**: Helmet, Rate Limiting, CORS
+
+## 📞 Audio/Video Calling
+
+### How It Works
+
+1. **WebRTC Signaling**: Socket.IO is used for WebRTC signaling between peers
+2. **ICE Servers**: Uses Google STUN servers + Metered.ca TURN servers for NAT traversal
+3. **Connection Quality**: Real-time monitoring of call quality with automatic reconnection
+4. **Peer-to-Peer**: Audio/video streams are sent directly between peers (encrypted by WebRTC)
+
+### Features
+
+- **Audio Calls**: Click the phone icon during a chat session
+- **Video Calls**: Click the video icon during a chat session
+- **Mute/Unmute**: Toggle microphone during calls
+- **Camera On/Off**: Toggle camera during video calls
+- **Switch Camera**: Switch between front/back cameras on mobile
+- **Connection Quality**: See real-time connection quality indicator
+- **Fullscreen**: Expand video calls to fullscreen
+
+### Production TURN Servers
+
+For production deployments, TURN servers are critical (~15% of WebRTC connections require them for NAT traversal). The app includes free Metered.ca TURN servers by default. For high-volume production:
+
+1. **Metered.ca**: Free tier available, paid plans for higher usage
+2. **Self-hosted coturn**: Deploy your own TURN server
+3. **Twilio/Xirsys**: Paid cloud TURN services
+
+Configure custom TURN servers in `.env`:
+
+```env
+VITE_TURN_URL=turn:your-turn-server.com:3478
+VITE_TURN_USERNAME=your-username
+VITE_TURN_CREDENTIAL=your-credential
+```
 
 ## Quick Start
 

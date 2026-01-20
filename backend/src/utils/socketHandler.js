@@ -22,7 +22,7 @@ function setupSocket(io) {
       const targetSocketId = connectedUsers.get(targetAvatar);
 
       console.log(
-        `📨 Session request from ${initiatorAvatar} to ${targetAvatar}`
+        `📨 Session request from ${initiatorAvatar} to ${targetAvatar}`,
       );
 
       if (targetSocketId) {
@@ -60,7 +60,7 @@ function setupSocket(io) {
         });
 
         console.log(
-          `🔐 Secure session established between ${socket.avatarName} and ${targetAvatar}`
+          `🔐 Secure session established between ${socket.avatarName} and ${targetAvatar}`,
         );
       }
     });
@@ -135,20 +135,22 @@ function setupSocket(io) {
       const { targetAvatar } = data;
       const targetSocketId = connectedUsers.get(targetAvatar);
 
-      console.log(`🔚 Session ended by ${socket.avatarName} with ${targetAvatar}`);
+      console.log(
+        `🔚 Session ended by ${socket.avatarName} with ${targetAvatar}`,
+      );
 
       if (targetSocketId) {
         // Notify the other user that session has ended
         socket.to(targetSocketId).emit("session-ended", {
           endedBy: socket.avatarName,
-          message: "The session has been terminated by the other participant."
+          message: "The session has been terminated by the other participant.",
         });
       }
 
       // Also notify the session ender
       socket.emit("session-ended", {
         endedBy: socket.avatarName,
-        message: "You have ended the session."
+        message: "You have ended the session.",
       });
     });
 
@@ -164,6 +166,13 @@ function setupSocket(io) {
       }
     });
   });
+
+  // Return connectedUsers so WebRTC handler can access it
+  return connectedUsers;
 }
 
-module.exports = { setupSocket, connectedUsers };
+function getConnectedUsers() {
+  return connectedUsers;
+}
+
+module.exports = { setupSocket, getConnectedUsers, connectedUsers };

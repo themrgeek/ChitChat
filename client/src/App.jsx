@@ -1,21 +1,26 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
-import { useAuthStore, useUIStore } from "./store";
+import { useAuthStore, useUIStore, useChatStore } from "./store";
 import socketService from "./services/socket";
+import webrtcService from "./services/webrtc";
 import TermsModal from "./components/TermsModal";
 import AuthView from "./components/auth/AuthView";
 import MainView from "./components/main/MainView";
 import ChatView from "./components/chat/ChatView";
 import Toast from "./components/ui/Toast";
+import { IncomingCallModal, ActiveCallView } from "./components/CallView";
 
 function App() {
   const { isAuthenticated, termsAccepted } = useAuthStore();
   const { toast } = useUIStore();
+  const { incomingCall, activeCall } = useChatStore();
 
   useEffect(() => {
     // Connect socket when authenticated
     if (isAuthenticated) {
-      socketService.connect();
+      const socket = socketService.connect();
+      // Initialize WebRTC with socket
+      webrtcService.setSocket(socket);
     }
 
     return () => {
@@ -59,6 +64,11 @@ function App() {
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+
+        {/* Call UI - overlays everything */}
+        {incomingCall && <IncomingCallModal />}
+        {activeCall && <ActiveCallView />}
+
         {toast && <Toast message={toast.message} type={toast.type} />}
       </div>
     </BrowserRouter>

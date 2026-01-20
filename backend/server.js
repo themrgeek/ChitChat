@@ -4,11 +4,15 @@ const socketIo = require("socket.io");
 const cors = require("cors");
 const path = require("path");
 const compression = require("compression");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 require("dotenv").config();
 
+const { connectDB } = require("./src/config/database");
 const authRoutes = require("./src/routes/auth");
 const chatRoutes = require("./src/routes/chat");
-const { setupSocket } = require("./src/utils/socketHandler");
+const { setupSocket, getConnectedUsers } = require("./src/utils/socketHandler");
+const { setupWebRTCSignaling } = require("./src/utils/webrtcHandler");
 
 const app = express();
 const server = http.createServer(app);
@@ -24,11 +28,13 @@ const allowedOrigins = isProduction
         ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
         : "*",
       process.env.RAILWAY_STATIC_URL || "*",
+      process.env.FRONTEND_URL || "*",
     ]
   : [
       "http://localhost:3000",
       "http://127.0.0.1:3000",
       "http://localhost:5173",
+      "http://localhost:8081", // React Native Expo
       "*",
     ];
 
@@ -38,15 +44,60 @@ const io = socketIo(server, {
     methods: ["GET", "POST"],
     credentials: true,
   },
-  // Railway-specific settings for WebSocket
   transports: ["websocket", "polling"],
   pingTimeout: 60000,
   pingInterval: 25000,
-  // Allow large payloads for file transfers
-  maxHttpBufferSize: 10e6, // 10MB
+  maxHttpBufferSize: 10e6, // 10MB for file transfers
 });
 
-// Middleware
+// ==================== SECURITY MIDDLEWARE ====================
+
+// Helmet for security headers (configured for React SPA)
+app.use(
+  helmet({
+    contentSecurityPolicy: isProduction
+      ? {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            styleSrc: [
+              "'self'",
+              "'unsafe-inline'",
+              "https://fonts.googleapis.com",
+            ],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:", "blob:"],
+            connectSrc: ["'self'", "wss:", "ws:", "https:"],
+            mediaSrc: ["'self'", "blob:"],
+          },
+        }
+      : false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: isProduction ? 100 : 1000, // Limit requests per window
+  message: { error: "Too many requests, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const authLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: isProduction ? 20 : 100, // Auth attempts per hour
+  message: {
+    error: "Too many authentication attempts, please try again later",
+  },
+});
+
+app.use("/api", limiter);
+app.use("/api/auth", authLimiter);
+
+// CORS
 app.use(
   cors({
     origin: allowedOrigins,
@@ -54,12 +105,12 @@ app.use(
   }),
 );
 
-// Trust proxy for Railway (needed for secure cookies, proper IP detection)
+// Trust proxy for Railway
 if (isProduction) {
   app.set("trust proxy", 1);
 }
 
-// Enable gzip compression for all responses
+// Compression
 app.use(
   compression({
     level: 6,
@@ -71,18 +122,18 @@ app.use(
   }),
 );
 
+// Body parsing
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Serve React build in production, or legacy frontend in development
+// ==================== STATIC FILES ====================
+
 const clientBuildPath = path.join(__dirname, "../client/dist");
 const legacyFrontendPath = path.join(__dirname, "../frontend");
-
-// Check if React build exists
 const fs = require("fs");
 const hasReactBuild = fs.existsSync(clientBuildPath);
 
-// Serve static files with caching headers for production
+// Serve static files with caching
 app.use(
   express.static(hasReactBuild ? clientBuildPath : legacyFrontendPath, {
     maxAge: isProduction ? "1d" : 0,
@@ -91,35 +142,34 @@ app.use(
   }),
 );
 
-// Also serve legacy frontend static assets (for terms.html, privacy.html)
-if (hasReactBuild) {
-  app.use("/legacy", express.static(legacyFrontendPath, { maxAge: "1d" }));
-}
+// ==================== API ROUTES ====================
 
-// Health check endpoint for Railway
+// Health check
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "healthy",
     timestamp: new Date().toISOString(),
     environment: isProduction ? "production" : "development",
+    version: "2.0.0",
   });
 });
 
-// API info endpoint
+// API info
 app.get("/api", (req, res) => {
   res.json({
-    name: "ChitChat API",
-    version: "1.0.1",
+    name: "DOOT Secure Chat API",
+    version: "2.0.0",
     status: "running",
+    features: ["messaging", "file-sharing", "audio-calls", "video-calls"],
     environment: isProduction ? "production" : "development",
   });
 });
 
-// Routes
+// Auth & Chat routes
 app.use("/api/auth", authRoutes);
 app.use("/api/chat", chatRoutes);
 
-// Serve terms and privacy pages (from legacy frontend)
+// Terms and Privacy
 app.get("/terms.html", (req, res) => {
   res.sendFile(path.join(legacyFrontendPath, "terms.html"));
 });
@@ -128,9 +178,8 @@ app.get("/privacy.html", (req, res) => {
   res.sendFile(path.join(legacyFrontendPath, "privacy.html"));
 });
 
-// Serve frontend for all non-API routes (SPA support)
+// SPA fallback
 app.get("*", (req, res) => {
-  // Don't serve index.html for API routes
   if (req.path.startsWith("/api/")) {
     return res.status(404).json({ error: "API endpoint not found" });
   }
@@ -142,15 +191,72 @@ app.get("*", (req, res) => {
   res.sendFile(indexPath);
 });
 
-// Socket.io setup
-setupSocket(io);
+// ==================== ERROR HANDLING ====================
 
-// Start server
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 ChitChat server running on port ${PORT}`);
-  console.log(`🔒 Secure P2P messaging system activated`);
-  console.log(`🌍 Environment: ${isProduction ? "Production" : "Development"}`);
-  if (!isProduction) {
-    console.log(`📡 Local URL: http://localhost:${PORT}`);
-  }
+// 404 handler
+app.use((req, res, next) => {
+  res.status(404).json({ error: "Not found" });
 });
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error("❌ Error:", err.message);
+
+  const statusCode = err.statusCode || 500;
+  const message = isProduction ? "Internal server error" : err.message;
+
+  res.status(statusCode).json({
+    error: message,
+    ...(isProduction ? {} : { stack: err.stack }),
+  });
+});
+
+// ==================== SOCKET.IO SETUP ====================
+
+// Setup chat socket handlers
+const connectedUsers = setupSocket(io);
+
+// Setup WebRTC signaling for audio/video calls
+setupWebRTCSignaling(io, connectedUsers);
+
+// ==================== DATABASE & SERVER START ====================
+
+async function startServer() {
+  // Connect to MongoDB (optional - will fallback to in-memory if not available)
+  if (process.env.MONGODB_URI || process.env.MONGO_URI) {
+    await connectDB();
+  } else {
+    console.log("⚠️ No MongoDB URI provided - using in-memory storage");
+  }
+
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log(`🚀 DOOT Secure Chat server running on port ${PORT}`);
+    console.log(`🔒 End-to-end encrypted messaging activated`);
+    console.log(`📞 Audio/Video calling enabled`);
+    console.log(
+      `🌍 Environment: ${isProduction ? "Production" : "Development"}`,
+    );
+    if (!isProduction) {
+      console.log(`📡 Local URL: http://localhost:${PORT}`);
+    }
+  });
+}
+
+// Graceful shutdown
+process.on("SIGTERM", async () => {
+  console.log("🛑 SIGTERM received. Shutting down gracefully...");
+  server.close(() => {
+    console.log("👋 Server closed");
+    process.exit(0);
+  });
+});
+
+process.on("SIGINT", async () => {
+  console.log("🛑 SIGINT received. Shutting down gracefully...");
+  server.close(() => {
+    console.log("👋 Server closed");
+    process.exit(0);
+  });
+});
+
+startServer();

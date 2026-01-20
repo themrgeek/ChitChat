@@ -46,6 +46,15 @@ export const useChatStore = create((set, get) => ({
   contacts: [],
   typingUsers: new Set(),
 
+  // Call state
+  activeCall: null,
+  callStatus: null, // null, 'calling', 'ringing', 'connecting', 'connected'
+  incomingCall: null,
+  localStream: null,
+  remoteStream: null,
+  remoteMediaState: { audio: true, video: true },
+  connectionQuality: null, // null, 'excellent', 'good', 'fair', 'poor', 'disconnected'
+
   setSocket: (socket) => set({ socket }),
 
   setConnected: (connected) => set({ connected }),
@@ -94,6 +103,18 @@ export const useChatStore = create((set, get) => ({
       contacts: state.contacts.map((c) =>
         c.avatarName === avatarName ? { ...c, isOnline } : c,
       ),
+    })),
+
+  // Call actions
+  setActiveCall: (call) => set({ activeCall: call }),
+  setCallStatus: (status) => set({ callStatus: status }),
+  setIncomingCall: (call) => set({ incomingCall: call }),
+  setLocalStream: (stream) => set({ localStream: stream }),
+  setRemoteStream: (stream) => set({ remoteStream: stream }),
+  setConnectionQuality: (quality) => set({ connectionQuality: quality }),
+  updateRemoteMediaState: (mediaType, enabled) =>
+    set((state) => ({
+      remoteMediaState: { ...state.remoteMediaState, [mediaType]: enabled },
     })),
 }));
 

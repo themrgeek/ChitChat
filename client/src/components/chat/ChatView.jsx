@@ -12,10 +12,13 @@ import {
   Download,
   Trash2,
   MoreVertical,
+  Phone,
+  Video,
 } from "lucide-react";
 import { useAuthStore, useChatStore, useUIStore } from "../../store";
 import socketService from "../../services/socket";
 import cryptoService from "../../services/crypto";
+import webrtcService from "../../services/webrtc";
 
 export default function ChatView() {
   const navigate = useNavigate();
@@ -150,6 +153,36 @@ export default function ChatView() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Call Buttons - only show when in active session */}
+            {currentSession && (
+              <>
+                <button
+                  onClick={() =>
+                    webrtcService.initiateCall(
+                      currentSession.peerAvatar,
+                      "audio",
+                    )
+                  }
+                  className="p-2 hover:bg-primary-900/30 rounded-lg transition-colors"
+                  title="Audio Call"
+                >
+                  <Phone className="w-5 h-5 text-primary-600" />
+                </button>
+                <button
+                  onClick={() =>
+                    webrtcService.initiateCall(
+                      currentSession.peerAvatar,
+                      "video",
+                    )
+                  }
+                  className="p-2 hover:bg-primary-900/30 rounded-lg transition-colors"
+                  title="Video Call"
+                >
+                  <Video className="w-5 h-5 text-primary-600" />
+                </button>
+              </>
+            )}
+
             {/* Connection Status */}
             {connected ? (
               <Wifi className="w-4 h-4 text-green-500" />
