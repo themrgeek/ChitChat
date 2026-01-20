@@ -1,42 +1,42 @@
+// ⚡ PERFORMANCE: Use Map for O(1) lookups
 const connectedUsers = new Map();
+
+// ⚡ Pre-allocate common response objects
+const userNotFoundResponse = { message: "User not online" };
 
 function setupSocket(io) {
   io.on("connection", (socket) => {
     console.log(`🔗 User connected: ${socket.id}`);
 
-    // User joins with their avatar name
-    socket.on("user-join", async (data) => {
+    // ⚡ FAST: User joins with their avatar name
+    socket.on("user-join", (data) => {
       const { avatarName } = data;
       connectedUsers.set(avatarName, socket.id);
       socket.avatarName = avatarName;
 
       console.log(`👤 User joined: ${avatarName}`);
 
-      // Notify other users
-      socket.broadcast.emit("user-online", { avatarName });
+      // ⚡ Broadcast async to not block
+      setImmediate(() => {
+        socket.broadcast.emit("user-online", { avatarName });
+      });
     });
 
-    // Initiate session with another user
+    // ⚡ FAST: Initiate session with another user
     socket.on("session-request", (data) => {
       const { targetAvatar, secretCode, initiatorAvatar } = data;
       const targetSocketId = connectedUsers.get(targetAvatar);
-
-      console.log(
-        `📨 Session request from ${initiatorAvatar} to ${targetAvatar}`,
-      );
 
       if (targetSocketId) {
         socket.to(targetSocketId).emit("session-request", {
           initiatorAvatar,
           secretCode,
         });
-        console.log(`✅ Session request delivered to ${targetAvatar}`);
       } else {
         socket.emit("session-error", {
-          message: "User not online",
+          ...userNotFoundResponse,
           targetAvatar,
         });
-        console.log(`❌ User ${targetAvatar} not found`);
       }
     });
 

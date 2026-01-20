@@ -247,7 +247,7 @@ const authController = {
   // ⚡ FAST: Send OTP to email (< 15ms)
   async sendOTP(req, res) {
     const startTime = Date.now();
-    
+
     try {
       console.log("📧 Received OTP request for:", req.body.email);
 
@@ -296,9 +296,9 @@ const authController = {
         emailStatus: "sending_async",
         responseTimeMs: responseTime,
         // ⚡ DEV: Include OTP for instant testing
-        ...(process.env.NODE_ENV !== "strict_production" && { 
+        ...(process.env.NODE_ENV !== "strict_production" && {
           otp,
-          tempPassword 
+          tempPassword,
         }),
       };
 
@@ -313,7 +313,7 @@ const authController = {
   // ⚡ FAST: Verify OTP and create user (< 10ms)
   async verifyOTP(req, res) {
     const startTime = Date.now();
-    
+
     try {
       console.log("🔐 Received OTP verification request");
 
@@ -386,7 +386,7 @@ const authController = {
   // ⚡ FAST: Avatar login - Step 1: Verify credentials and send OTP (< 20ms)
   async avatarLogin(req, res) {
     const startTime = Date.now();
-    
+
     try {
       console.log("👤 Received login request:", req.body.avatarName);
 
@@ -460,7 +460,7 @@ const authController = {
   // ⚡ FAST: Verify login OTP - Step 2: Complete login (< 5ms)
   async verifyLoginOTP(req, res) {
     const startTime = Date.now();
-    
+
     try {
       console.log("🔐 Received login OTP verification request");
 

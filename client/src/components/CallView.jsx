@@ -110,7 +110,7 @@ export function IncomingCallModal() {
             </button>
             <span className="text-xs text-red-400">Decline</span>
           </div>
-          
+
           {/* Accept */}
           <div className="flex flex-col items-center gap-2">
             <button
@@ -308,12 +308,12 @@ export function ActiveCallView() {
                 {activeCall.targetAvatar?.charAt(0).toUpperCase()}
               </span>
             </div>
-            
+
             {/* Name */}
             <h3 className="text-xl sm:text-2xl font-bold text-white mb-2 text-center">
               {activeCall.targetAvatar}
             </h3>
-            
+
             {/* Status/Duration */}
             <p className="text-matrix-green text-base sm:text-lg mb-6">
               {callStatus === "connected"
@@ -333,7 +333,7 @@ export function ActiveCallView() {
                     style={{
                       height: `${Math.random() * 35 + 8}px`,
                       animationDelay: `${i * 0.1}s`,
-                      animation: 'pulse 0.5s ease-in-out infinite alternate',
+                      animation: "pulse 0.5s ease-in-out infinite alternate",
                     }}
                   />
                 ))}

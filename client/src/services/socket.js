@@ -14,16 +14,22 @@ class SocketService {
     const isProduction = window.location.protocol === "https:";
 
     this.socket = io(socketUrl, {
-      // PRODUCTION: Use WebSocket only for faster connection
-      transports: isProduction ? ["websocket"] : ["websocket", "polling"],
+      // ⚡ PERFORMANCE: WebSocket only (no polling fallback) for speed
+      transports: ["websocket"],
+      upgrade: false, // ⚡ Don't upgrade from polling, start with WS
       reconnection: true,
       reconnectionAttempts: this.maxReconnectAttempts,
-      reconnectionDelay: 500, // Faster initial reconnect
-      reconnectionDelayMax: 3000,
-      timeout: 10000, // Faster timeout
-      // Reduce overhead
+      reconnectionDelay: 300, // ⚡ Faster initial reconnect
+      reconnectionDelayMax: 2000, // ⚡ Faster max delay
+      timeout: 5000, // ⚡ Faster timeout (5s instead of 10s)
+      // ⚡ Reduce overhead
       forceNew: false,
       multiplex: true,
+      // ⚡ Faster ping/pong
+      pingTimeout: 10000,
+      pingInterval: 15000,
+      // ⚡ Auto connect
+      autoConnect: true,
     });
 
     this.setupListeners();

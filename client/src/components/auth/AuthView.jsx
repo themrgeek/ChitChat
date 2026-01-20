@@ -36,7 +36,10 @@ export default function AuthView() {
       setCredentials(data);
       setMode("new");
       // ⚡ Show response time
-      showToast(`Identity created! ${data.responseTimeMs ? `(${data.responseTimeMs}ms)` : ''}`, "success");
+      showToast(
+        `Identity created! ${data.responseTimeMs ? `(${data.responseTimeMs}ms)` : ""}`,
+        "success",
+      );
     } catch (error) {
       showToast(error.message, "error");
     } finally {
@@ -57,14 +60,17 @@ export default function AuthView() {
 
       // ⚡ FAST: Use email from login response (no extra API call!)
       setLoginData((prev) => ({ ...prev, email: data.email }));
-      
+
       // ⚡ DEV: Auto-fill OTP if returned (for instant testing)
       if (data.otp) {
         setOtp(data.otp);
       }
 
       setMode("loginOTP");
-      showToast(`OTP sent! ${data.responseTimeMs ? `(${data.responseTimeMs}ms)` : ''}`, "success");
+      showToast(
+        `OTP sent! ${data.responseTimeMs ? `(${data.responseTimeMs}ms)` : ""}`,
+        "success",
+      );
     } catch (error) {
       showToast(error.message, "error");
     } finally {

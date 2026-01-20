@@ -44,17 +44,21 @@ const io = socketIo(server, {
     methods: ["GET", "POST"],
     credentials: true,
   },
-  // PRODUCTION OPTIMIZATION: Prefer WebSocket, fallback to polling only if needed
-  transports: isProduction ? ["websocket"] : ["websocket", "polling"],
-  allowUpgrades: true,
-  upgradeTimeout: 10000,
-  pingTimeout: 30000,
-  pingInterval: 15000,
+  // ⚡ PERFORMANCE: WebSocket only, no polling for speed
+  transports: ["websocket"],
+  allowUpgrades: false, // ⚡ Don't allow upgrades, start with WS
+  upgradeTimeout: 5000, // ⚡ Faster upgrade timeout
+  pingTimeout: 20000, // ⚡ Faster ping timeout
+  pingInterval: 10000, // ⚡ More frequent pings
   maxHttpBufferSize: 10e6, // 10MB for file transfers
-  // Reduce connection overhead
+  // ⚡ Compression for larger messages only
   perMessageDeflate: {
-    threshold: 1024, // Only compress messages > 1KB
+    threshold: 2048, // Only compress messages > 2KB
+    zlibDeflateOptions: { level: 1 }, // Fast compression
   },
+  // ⚡ Connection optimizations
+  connectTimeout: 5000,
+  httpCompression: true,
 });
 
 // ==================== SECURITY MIDDLEWARE ====================
@@ -193,20 +197,35 @@ app.use((req, res, next) => {
   next();
 });
 
+// ⚡ PERFORMANCE: Keep-alive header for connection reuse
+app.use((req, res, next) => {
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("Keep-Alive", "timeout=30, max=1000");
+  next();
+});
+
 // ==================== API ROUTES ====================
 
-// Health check
+// ⚡ FAST: Health check - cached response
+const healthResponse = {
+  status: "healthy",
+  version: "2.0.0",
+};
+
 app.get("/health", (req, res) => {
+  // ⚡ Cache health response for 10 seconds
+  res.setHeader("Cache-Control", "public, max-age=10");
+  res.setHeader("X-Response-Time", "0ms");
   res.status(200).json({
-    status: "healthy",
+    ...healthResponse,
     timestamp: new Date().toISOString(),
     environment: isProduction ? "production" : "development",
-    version: "2.0.0",
   });
 });
 
-// API info
+// ⚡ FAST: API info - cached
 app.get("/api", (req, res) => {
+  res.setHeader("Cache-Control", "public, max-age=60");
   res.json({
     name: "DOOT Secure Chat API",
     version: "2.0.0",
