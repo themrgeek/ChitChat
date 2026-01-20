@@ -11,6 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Camera } from "expo-camera";
 import { Audio } from "expo-av";
 import * as Haptics from "expo-haptics";
+import * as ScreenCapture from "expo-screen-capture";
 import { useChatStore, useUIStore } from "../store";
 import socketService from "../services/socket";
 
@@ -36,6 +37,18 @@ export default function CallScreen({ navigation, route }) {
 
   const cameraRef = useRef(null);
   const timerRef = useRef(null);
+
+  // Prevent screenshots during calls
+  useEffect(() => {
+    const preventScreenCapture = async () => {
+      await ScreenCapture.preventScreenCaptureAsync();
+    };
+    preventScreenCapture();
+
+    return () => {
+      ScreenCapture.allowScreenCaptureAsync();
+    };
+  }, []);
 
   useEffect(() => {
     requestPermissions();

@@ -13,7 +13,7 @@ class EmailService {
     // If no email config provided, use Ethereal test account
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
       console.log(
-        "📧 No email configuration found, using Ethereal test service..."
+        "📧 No email configuration found, using Ethereal test service...",
       );
       await this.setupEtherealTransporter();
       return;
@@ -36,7 +36,7 @@ class EmailService {
       console.log("✅ Email transporter configured successfully");
     } catch (error) {
       console.log(
-        "❌ Configured email service failed, falling back to Ethereal..."
+        "❌ Configured email service failed, falling back to Ethereal...",
       );
       await this.setupEtherealTransporter();
     }
@@ -71,34 +71,24 @@ class EmailService {
 
   async createEtherealAccount() {
     try {
-      console.log("📧 Setting up Ethereal account for user...");
+      console.log("📧 Creating real Ethereal test account...");
 
-      // PRODUCTION FIX: Generate a unique pseudo-ethereal email instantly
-      // This avoids the slow nodemailer.createTestAccount() API call
-      // which can timeout or fail in production environments
-      
-      const uniqueId = Math.random().toString(36).substring(2, 10);
-      const timestamp = Date.now().toString(36);
-      const userPart = `doot_${uniqueId}_${timestamp}`;
-      
-      // Generate a random password for display purposes
-      const crypto = require('crypto');
-      const randomPass = crypto.randomBytes(8).toString('base64').slice(0, 12);
-      
+      // Create actual Ethereal test account
+      const testAccount = await nodemailer.createTestAccount();
+
+      console.log("✅ Ethereal account created:");
+      console.log("   📧 Email:", testAccount.user);
+      console.log("   🔑 Pass:", testAccount.pass);
+      console.log("   🌐 View emails at: https://ethereal.email");
+
       return {
-        user: userPart,
-        pass: randomPass,
-        email: `${userPart}@doot-secure.local`,
+        user: testAccount.user,
+        pass: testAccount.pass,
+        email: testAccount.user,
       };
     } catch (error) {
-      console.error("❌ Failed to setup account:", error);
-      // Fallback with guaranteed working values
-      const fallbackId = Date.now().toString(36);
-      return {
-        user: `user_${fallbackId}`,
-        pass: 'demo-password',
-        email: `user_${fallbackId}@doot-secure.local`,
-      };
+      console.error("❌ Failed to create Ethereal account:", error);
+      throw new Error("Failed to create test email account. Please try again.");
     }
   }
 
@@ -111,15 +101,14 @@ class EmailService {
     const emailContent = this.createEmailTemplate(
       otp,
       avatarName,
-      tempPassword
+      tempPassword,
     );
 
     try {
       const mailOptions = {
         from: this.isTestAccount
           ? '"DOOT Security" <noreply@ethereal.email>'
-          : process.env.EMAIL_FROM ||
-            '"DOOT Security" <security@doot.com>',
+          : process.env.EMAIL_FROM || '"DOOT Security" <security@doot.com>',
         to: email,
         subject: "🔒 Your DOOT Secure OTP",
         html: emailContent,
@@ -134,7 +123,7 @@ class EmailService {
         const previewUrl = nodemailer.getTestMessageUrl(info);
         console.log("📧 Email Preview URL:", previewUrl);
         console.log(
-          "💡 Click the above URL to view the email in your browser!"
+          "💡 Click the above URL to view the email in your browser!",
         );
       }
 
@@ -156,14 +145,14 @@ class EmailService {
     email,
     avatarName,
     tempPassword,
-    etherealPassword = null
+    etherealPassword = null,
   ) {
     // If no transporter, use console fallback
     if (!this.transporter) {
       return this.sendCredentialsConsoleFallback(
         email,
         avatarName,
-        tempPassword
+        tempPassword,
       );
     }
 
@@ -171,15 +160,14 @@ class EmailService {
       email,
       avatarName,
       tempPassword,
-      etherealPassword
+      etherealPassword,
     );
 
     try {
       const mailOptions = {
         from: this.isTestAccount
           ? '"DOOT Security" <noreply@ethereal.email>'
-          : process.env.EMAIL_FROM ||
-            '"DOOT Security" <security@doot.com>',
+          : process.env.EMAIL_FROM || '"DOOT Security" <security@doot.com>',
         to: email,
         subject: "🔐 Your DOOT Secure Identity Created",
         html: emailContent,
@@ -187,7 +175,7 @@ class EmailService {
           email,
           avatarName,
           tempPassword,
-          etherealPassword
+          etherealPassword,
         ),
       };
 
@@ -199,7 +187,7 @@ class EmailService {
         const previewUrl = nodemailer.getTestMessageUrl(info);
         console.log("📧 Email Preview URL:", previewUrl);
         console.log(
-          "💡 Click the above URL to view the email in your browser!"
+          "💡 Click the above URL to view the email in your browser!",
         );
       }
 
@@ -217,7 +205,7 @@ class EmailService {
         email,
         avatarName,
         tempPassword,
-        etherealPassword
+        etherealPassword,
       );
     }
   }
@@ -234,8 +222,7 @@ class EmailService {
       const mailOptions = {
         from: this.isTestAccount
           ? '"DOOT Security" <noreply@ethereal.email>'
-          : process.env.EMAIL_FROM ||
-            '"DOOT Security" <security@doot.com>',
+          : process.env.EMAIL_FROM || '"DOOT Security" <security@doot.com>',
         to: email,
         subject: "🔒 DOOT Login Verification",
         html: emailContent,
@@ -250,7 +237,7 @@ class EmailService {
         const previewUrl = nodemailer.getTestMessageUrl(info);
         console.log("📧 Email Preview URL:", previewUrl);
         console.log(
-          "💡 Click the above URL to view the email in your browser!"
+          "💡 Click the above URL to view the email in your browser!",
         );
       }
 
@@ -429,7 +416,7 @@ If you didn't request this, please ignore this email.
     email,
     avatarName,
     tempPassword,
-    etherealPassword = null
+    etherealPassword = null,
   ) {
     console.log("\n📧 ===== SECURE CREDENTIALS EMAIL (CONSOLE FALLBACK) =====");
     console.log(`📧 To: ${email}`);
@@ -469,7 +456,7 @@ If you didn't request this, please ignore this email.
     email,
     avatarName,
     tempPassword,
-    etherealPassword = null
+    etherealPassword = null,
   ) {
     return `
 <!DOCTYPE html>
@@ -657,7 +644,7 @@ If you didn't request this, please ignore this email.
     email,
     avatarName,
     tempPassword,
-    etherealPassword = null
+    etherealPassword = null,
   ) {
     return `
 DOOT IDENTITY CREATED

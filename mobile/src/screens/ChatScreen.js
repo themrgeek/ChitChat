@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as ScreenCapture from "expo-screen-capture";
 import { useAuthStore, useChatStore, useUIStore } from "../store";
 import socketService from "../services/socket";
 
@@ -24,6 +25,20 @@ export default function ChatScreen({ navigation }) {
   const { connected, currentSession, messages, typingUsers, endSession } =
     useChatStore();
   const { showToast } = useUIStore();
+
+  // Prevent screenshots on this screen
+  useEffect(() => {
+    // Activate screenshot prevention when screen is focused
+    const preventScreenCapture = async () => {
+      await ScreenCapture.preventScreenCaptureAsync();
+    };
+    preventScreenCapture();
+
+    // Allow screenshots when leaving the screen
+    return () => {
+      ScreenCapture.allowScreenCaptureAsync();
+    };
+  }, []);
 
   useEffect(() => {
     // Scroll to bottom on new messages
