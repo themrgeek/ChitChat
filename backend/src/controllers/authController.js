@@ -1,4 +1,5 @@
 const emailService = require("../config/emailService");
+const crypto = require("crypto");
 
 // Simple in-memory storage for demo
 const users = new Map();
@@ -38,27 +39,49 @@ class SimpleAvatarGenerator {
   }
 
   static generateTempPassword() {
-    const chars =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
-    let password = "";
-    for (let i = 0; i < 12; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password;
+    // Use crypto for secure password generation
+    return crypto.randomBytes(8).toString("base64").slice(0, 12);
   }
 
   static generateOTP() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    // Use crypto for secure OTP generation
+    return crypto.randomInt(100000, 999999).toString();
   }
 }
 
-// Simple crypto utils
+// Proper crypto utils using Node.js crypto module
 class SimpleCryptoUtils {
   static generateKeyPair() {
-    return {
-      publicKey: "pub-" + Math.random().toString(36).substring(2, 15),
-      privateKey: "priv-" + Math.random().toString(36).substring(2, 15),
-    };
+    try {
+      // Generate proper ECDH keys for production (faster than RSA, secure)
+      const keyPair = crypto.generateKeyPairSync("ec", {
+        namedCurve: "secp256k1",
+        publicKeyEncoding: {
+          type: "spki",
+          format: "pem",
+        },
+        privateKeyEncoding: {
+          type: "pkcs8",
+          format: "pem",
+        },
+      });
+      return {
+        publicKey: keyPair.publicKey,
+        privateKey: keyPair.privateKey,
+      };
+    } catch (error) {
+      console.error("Key generation error, using fallback:", error.message);
+      // Fallback for environments without full crypto support
+      const randomId = crypto.randomBytes(32).toString("hex");
+      return {
+        publicKey: `pk_${randomId}`,
+        privateKey: `sk_${crypto.randomBytes(32).toString("hex")}`,
+      };
+    }
+  }
+
+  static generateSecureToken(length = 32) {
+    return crypto.randomBytes(length).toString("hex");
   }
 }
 
@@ -384,11 +407,9 @@ const authController = {
 
       if (otpRecord.expiresAt < Date.now()) {
         otpStore.delete(loginOTPKey);
-        return res
-          .status(400)
-          .json({
-            error: "Login OTP has expired. Please try logging in again.",
-          });
+        return res.status(400).json({
+          error: "Login OTP has expired. Please try logging in again.",
+        });
       }
 
       if (otpRecord.otp !== otp) {

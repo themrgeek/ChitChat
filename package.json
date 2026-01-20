@@ -1,6 +1,6 @@
 {
   "name": "chitchat-web",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "ChitChat - Secure P2P Encrypted Messaging Web Application",
   "private": true,
   "engines": {
@@ -8,10 +8,11 @@
   },
   "scripts": {
     "start": "cd backend && npm start",
-    "dev": "cd backend && npm run dev",
-    "install:backend": "cd backend && npm install",
-    "build": "echo 'No build step required'",
-    "postinstall": "cd backend && npm install"
+    "dev": "concurrently \"cd backend && npm run dev\" \"cd client && npm run dev\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "install:all": "cd backend && npm install && cd ../client && npm install",
+    "build:client": "cd client && npm install && npm run build"
   },
   "repository": {
     "type": "git",
@@ -22,7 +23,12 @@
     "messaging",
     "p2p",
     "encrypted",
-    "secure"
+    "secure",
+    "react",
+    "tailwind"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
 }

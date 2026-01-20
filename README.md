@@ -1,6 +1,14 @@
-# ChitChat - Secure P2P Encrypted Chat System
+# ChitChat (DOOT) - Secure P2P Encrypted Chat System
 
-A secure, end-to-end encrypted peer-to-peer messaging application built with Node.js, Socket.IO, and modern web technologies.
+A secure, end-to-end encrypted peer-to-peer messaging application built with Node.js, Socket.IO, React, and Tailwind CSS.
+
+## 🚀 Version 2.0 Updates
+
+- **React Frontend**: Migrated from vanilla HTML/JS to React with Tailwind CSS
+- **Mobile-First Design**: Fully responsive UI optimized for mobile devices
+- **Improved Security**: Proper cryptographic key generation using Node.js crypto
+- **Railway Optimized**: Ready for deployment to Railway with proper build configs
+- **Faster Build**: Vite for lightning-fast development and production builds
 
 ## Features
 
@@ -10,6 +18,7 @@ A secure, end-to-end encrypted peer-to-peer messaging application built with Nod
 - 🔐 **P2P Messaging**: Direct peer-to-peer communication
 - 📁 **Secure File Storage**: Encrypted file sharing capabilities
 - 🌐 **Real-time Communication**: Instant messaging with Socket.IO
+- 📱 **Mobile Responsive**: Optimized for all screen sizes
 
 ## ⚖️ Usage Guidelines & Legal Compliance
 
@@ -52,10 +61,11 @@ This service operates in compliance with applicable laws and regulations. Users 
 ## Tech Stack
 
 - **Backend**: Node.js, Express.js, Socket.IO
-- **Database**: MongoDB with Mongoose
-- **Frontend**: Vanilla JavaScript, HTML5, CSS3
-- **Encryption**: CryptoJS, custom encryption utilities
-- **Email Service**: Nodemailer
+- **Database**: In-memory (demo) / MongoDB ready
+- **Frontend**: React 18, Tailwind CSS, Vite
+- **State Management**: Zustand
+- **Encryption**: CryptoJS (frontend), Node.js crypto (backend)
+- **Email Service**: Nodemailer with Ethereal
 
 ## Quick Start
 

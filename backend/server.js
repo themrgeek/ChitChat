@@ -23,8 +23,14 @@ const allowedOrigins = isProduction
       process.env.RAILWAY_PUBLIC_DOMAIN
         ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
         : "*",
+      process.env.RAILWAY_STATIC_URL || "*",
     ]
-  : ["http://localhost:3000", "http://127.0.0.1:3000", "*"];
+  : [
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      "http://localhost:5173",
+      "*",
+    ];
 
 const io = socketIo(server, {
   cors: {
@@ -36,6 +42,8 @@ const io = socketIo(server, {
   transports: ["websocket", "polling"],
   pingTimeout: 60000,
   pingInterval: 25000,
+  // Allow large payloads for file transfers
+  maxHttpBufferSize: 10e6, // 10MB
 });
 
 // Middleware
@@ -66,14 +74,27 @@ app.use(
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
+// Serve React build in production, or legacy frontend in development
+const clientBuildPath = path.join(__dirname, "../client/dist");
+const legacyFrontendPath = path.join(__dirname, "../frontend");
+
+// Check if React build exists
+const fs = require("fs");
+const hasReactBuild = fs.existsSync(clientBuildPath);
+
 // Serve static files with caching headers for production
 app.use(
-  express.static(path.join(__dirname, "../frontend"), {
+  express.static(hasReactBuild ? clientBuildPath : legacyFrontendPath, {
     maxAge: isProduction ? "1d" : 0,
     etag: true,
     lastModified: true,
   }),
 );
+
+// Also serve legacy frontend static assets (for terms.html, privacy.html)
+if (hasReactBuild) {
+  app.use("/legacy", express.static(legacyFrontendPath, { maxAge: "1d" }));
+}
 
 // Health check endpoint for Railway
 app.get("/health", (req, res) => {
@@ -98,13 +119,27 @@ app.get("/api", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/chat", chatRoutes);
 
+// Serve terms and privacy pages (from legacy frontend)
+app.get("/terms.html", (req, res) => {
+  res.sendFile(path.join(legacyFrontendPath, "terms.html"));
+});
+
+app.get("/privacy.html", (req, res) => {
+  res.sendFile(path.join(legacyFrontendPath, "privacy.html"));
+});
+
 // Serve frontend for all non-API routes (SPA support)
 app.get("*", (req, res) => {
   // Don't serve index.html for API routes
   if (req.path.startsWith("/api/")) {
     return res.status(404).json({ error: "API endpoint not found" });
   }
-  res.sendFile(path.join(__dirname, "../frontend/index.html"));
+
+  const indexPath = hasReactBuild
+    ? path.join(clientBuildPath, "index.html")
+    : path.join(legacyFrontendPath, "index.html");
+
+  res.sendFile(indexPath);
 });
 
 // Socket.io setup
