@@ -9,7 +9,7 @@ class ChatManager {
   initializeSocket() {
     // Connect to the same origin (works for both local and production)
     const socketUrl = window.location.origin;
-    
+
     this.socket = io(socketUrl, {
       transports: ["websocket", "polling"],
       reconnection: true,
@@ -101,11 +101,11 @@ class ChatManager {
     if (!authManager.isLoggedIn()) {
       this.showMessage(
         "Please login first before starting a chat session",
-        "error"
+        "error",
       );
       console.error(
         "❌ User not logged in. authManager.currentUser:",
-        authManager.currentUser
+        authManager.currentUser,
       );
       return;
     }
@@ -118,7 +118,7 @@ class ChatManager {
     if (!targetAvatar || !secretCode) {
       this.showMessage(
         "Please enter both avatar name and secret code",
-        "error"
+        "error",
       );
       return;
     }
@@ -160,7 +160,7 @@ class ChatManager {
 
       this.showMessage(
         `🔐 Secure session established with ${data.initiatorAvatar}`,
-        "success"
+        "success",
       );
       this.showChatInterface();
 
@@ -181,7 +181,7 @@ class ChatManager {
     console.log("✅ Session established with:", data.peerAvatar);
     this.showMessage(
       `Secure session established with ${data.peerAvatar}`,
-      "success"
+      "success",
     );
     this.showChatInterface();
   }
@@ -323,7 +323,7 @@ class ChatManager {
 
       this.showMessage(
         `File received from ${data.from} and saved to SAFE`,
-        "success"
+        "success",
       );
 
       // Show file received message in chat and store in history
@@ -368,7 +368,7 @@ class ChatManager {
                     </button>
                 </div>
                 <div class="message-time">${new Date(
-                  messageData.timestamp
+                  messageData.timestamp,
                 ).toLocaleTimeString()}</div>
                 ${
                   messageData.isSent
@@ -383,7 +383,7 @@ class ChatManager {
                 <div class="message-sender">${messageData.from}</div>
                 <div class="message-content">${messageData.message}</div>
                 <div class="message-time">${new Date(
-                  messageData.timestamp
+                  messageData.timestamp,
                 ).toLocaleTimeString()}</div>
                 ${
                   messageData.isSent
@@ -538,7 +538,7 @@ class ChatManager {
 
     console.log(
       "💬 Chat interface activated",
-      this.currentSession ? "with active session" : "showing session setup"
+      this.currentSession ? "with active session" : "showing session setup",
     );
   }
 
@@ -616,7 +616,7 @@ class ChatManager {
     }
 
     const confirmed = confirm(
-      `Are you sure you want to end the session with ${this.currentSession.peerAvatar}?`
+      `Are you sure you want to end the session with ${this.currentSession.peerAvatar}?`,
     );
 
     if (!confirmed) return;
@@ -640,7 +640,7 @@ class ChatManager {
     }
 
     const confirmed = confirm(
-      `Are you sure you want to clear the chat history with ${this.currentSession.peerAvatar}? This action cannot be undone.`
+      `Are you sure you want to clear the chat history with ${this.currentSession.peerAvatar}? This action cannot be undone.`,
     );
 
     if (!confirmed) return;
@@ -662,7 +662,7 @@ class ChatManager {
 
     showQuickToast("Chat history cleared", "info", 3000);
     console.log(
-      `🗑️ Chat history cleared for session with ${this.currentSession.peerAvatar}`
+      `🗑️ Chat history cleared for session with ${this.currentSession.peerAvatar}`,
     );
   }
 
@@ -750,7 +750,7 @@ class ChatManager {
         <div class="file-info-compact">
           <div class="file-name-compact" title="${file.name}">${file.name}</div>
           <div class="file-meta-compact">${new Date(
-            file.timestamp
+            file.timestamp,
           ).toLocaleDateString()}</div>
         </div>
         <div class="file-actions-compact">
@@ -812,7 +812,7 @@ class ChatManager {
     if (!this.currentSession) return;
 
     const historyKey = this.getMessageHistoryKey(
-      this.currentSession.peerAvatar
+      this.currentSession.peerAvatar,
     );
     let history = this.loadMessageHistory(this.currentSession.peerAvatar);
 

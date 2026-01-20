@@ -14,6 +14,7 @@ A secure, end-to-end encrypted peer-to-peer messaging application built with Nod
 ## ⚖️ Usage Guidelines & Legal Compliance
 
 ### ✅ Acceptable Use
+
 DOOT is designed for **legitimate personal and professional communication**. Permitted activities include:
 
 - Personal messaging and communication
@@ -23,6 +24,7 @@ DOOT is designed for **legitimate personal and professional communication**. Per
 - Privacy-conscious communication needs
 
 ### 🚫 Prohibited Activities
+
 The following activities are strictly prohibited and will result in immediate account termination:
 
 - **Illegal Content**: Distribution of child exploitation material, illegal drugs, stolen intellectual property, malware, or other prohibited content
@@ -35,12 +37,14 @@ The following activities are strictly prohibited and will result in immediate ac
 - **Fraud**: Using the platform for fraudulent purposes
 
 ### 📋 Content Guidelines
+
 - **File Sharing**: Maximum 10MB per file. Only permitted formats for personal/professional use
 - **Messages**: Must comply with applicable laws and regulations
 - **Copyright**: Only share content you own or have permission to distribute
 - **Privacy**: Respect others' privacy and data protection rights
 
 ### 🛡️ Legal Compliance
+
 This service operates in compliance with applicable laws and regulations. Users are responsible for ensuring their use complies with local laws in their jurisdiction. Any illegal use may result in account termination and potential legal action.
 
 **By using DOOT, you agree to use it only for legitimate purposes and comply with our Terms of Service.**
@@ -64,19 +68,22 @@ This service operates in compliance with applicable laws and regulations. Users 
 ### Local Development
 
 1. Clone the repository:
+
 ```bash
 git clone <repository-url>
 cd ChitChat-VERSION-101-WEB
 ```
 
 2. Install dependencies:
+
 ```bash
 cd backend
 npm install
 ```
 
 3. Set up environment variables:
-Create a `.env` file in the backend directory (copy from `.env.example`):
+   Create a `.env` file in the backend directory (copy from `.env.example`):
+
 ```env
 NODE_ENV=development
 PORT=3000
@@ -84,6 +91,7 @@ JWT_SECRET=your-super-secret-jwt-key-here
 ```
 
 4. Start the development server:
+
 ```bash
 npm run dev
 ```
@@ -104,21 +112,25 @@ npm run dev
 ### Option 2: Railway CLI
 
 1. **Install Railway CLI**:
+
 ```bash
 npm install -g @railway/cli
 ```
 
 2. **Login to Railway**:
+
 ```bash
 railway login
 ```
 
 3. **Initialize project** (from project root):
+
 ```bash
 railway init
 ```
 
 4. **Deploy**:
+
 ```bash
 railway up
 ```
@@ -134,21 +146,23 @@ railway up
 
 Set these in your Railway project settings:
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `NODE_ENV` | Set to `production` | Yes |
-| `JWT_SECRET` | Secure random string for JWT | Yes |
-| `EMAIL_USER` | Email service username | Optional |
-| `EMAIL_PASS` | Email service password | Optional |
+| Variable     | Description                  | Required |
+| ------------ | ---------------------------- | -------- |
+| `NODE_ENV`   | Set to `production`          | Yes      |
+| `JWT_SECRET` | Secure random string for JWT | Yes      |
+| `EMAIL_USER` | Email service username       | Optional |
+| `EMAIL_PASS` | Email service password       | Optional |
 
 > **Note**: The app uses Ethereal Email by default for testing, so email credentials are optional for demo purposes.
 
 ### Post-Deployment
 
 After deployment, Railway will provide you with a public URL like:
+
 - `https://your-app-name.up.railway.app`
 
 The app automatically:
+
 - Detects the production environment
 - Configures WebSocket connections correctly
 - Serves both API and frontend from the same domain
@@ -184,26 +198,28 @@ The app automatically:
 
 ## Environment Variables
 
-| Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
-| `NODE_ENV` | Environment mode | No | `development` |
-| `PORT` | Server port | No | `3000` |
-| `MONGODB_URI` | MongoDB connection string | Yes | - |
-| `JWT_SECRET` | JWT signing secret | Yes | - |
-| `EMAIL_USER` | Email service username | Yes | - |
-| `EMAIL_PASS` | Email service password | Yes | - |
-| `SMTP_HOST` | SMTP server host | No | `smtp.gmail.com` |
-| `SMTP_PORT` | SMTP server port | No | `587` |
-| `EMAIL_FROM` | From email address | No | - |
+| Variable      | Description               | Required | Default          |
+| ------------- | ------------------------- | -------- | ---------------- |
+| `NODE_ENV`    | Environment mode          | No       | `development`    |
+| `PORT`        | Server port               | No       | `3000`           |
+| `MONGODB_URI` | MongoDB connection string | Yes      | -                |
+| `JWT_SECRET`  | JWT signing secret        | Yes      | -                |
+| `EMAIL_USER`  | Email service username    | Yes      | -                |
+| `EMAIL_PASS`  | Email service password    | Yes      | -                |
+| `SMTP_HOST`   | SMTP server host          | No       | `smtp.gmail.com` |
+| `SMTP_PORT`   | SMTP server port          | No       | `587`            |
+| `EMAIL_FROM`  | From email address        | No       | -                |
 
 ## API Endpoints
 
 ### Authentication
+
 - `POST /api/auth/send-otp` - Send OTP to email
 - `POST /api/auth/verify-otp` - Verify OTP and create user
 - `POST /api/auth/login` - Avatar login
 
 ### Chat
+
 - `POST /api/chat/session` - Create chat session
 - `POST /api/chat/message` - Send encrypted message
 - `GET /api/chat/messages` - Get chat history

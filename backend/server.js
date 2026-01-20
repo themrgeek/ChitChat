@@ -3,6 +3,7 @@ const http = require("http");
 const socketIo = require("socket.io");
 const cors = require("cors");
 const path = require("path");
+const compression = require("compression");
 require("dotenv").config();
 
 const authRoutes = require("./src/routes/auth");
@@ -18,7 +19,11 @@ const PORT = process.env.PORT || 3000;
 
 // Configure CORS for both local and production
 const allowedOrigins = isProduction
-  ? [process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : "*"]
+  ? [
+      process.env.RAILWAY_PUBLIC_DOMAIN
+        ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+        : "*",
+    ]
   : ["http://localhost:3000", "http://127.0.0.1:3000", "*"];
 
 const io = socketIo(server, {
@@ -34,26 +39,44 @@ const io = socketIo(server, {
 });
 
 // Middleware
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+  }),
+);
 
 // Trust proxy for Railway (needed for secure cookies, proper IP detection)
 if (isProduction) {
   app.set("trust proxy", 1);
 }
 
+// Enable gzip compression for all responses
+app.use(compression({
+  level: 6,
+  threshold: 1024,
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) return false;
+    return compression.filter(req, res);
+  }
+}));
+
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-app.use(express.static(path.join(__dirname, "../frontend")));
+
+// Serve static files with caching headers for production
+app.use(express.static(path.join(__dirname, "../frontend"), {
+  maxAge: isProduction ? '1d' : 0,
+  etag: true,
+  lastModified: true
+}));
 
 // Health check endpoint for Railway
 app.get("/health", (req, res) => {
-  res.status(200).json({ 
-    status: "healthy", 
+  res.status(200).json({
+    status: "healthy",
     timestamp: new Date().toISOString(),
-    environment: isProduction ? "production" : "development"
+    environment: isProduction ? "production" : "development",
   });
 });
 
@@ -63,7 +86,7 @@ app.get("/api", (req, res) => {
     name: "ChitChat API",
     version: "1.0.1",
     status: "running",
-    environment: isProduction ? "production" : "development"
+    environment: isProduction ? "production" : "development",
   });
 });
 

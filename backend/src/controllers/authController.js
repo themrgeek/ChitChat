@@ -112,16 +112,12 @@ const authController = {
         avatarName: avatarName,
         password: tempPassword,
         etherealEmail: testAccount.email,
-        etherealPassword: testAccount.pass, // Include for development/testing
+        etherealPassword: testAccount.pass,
         emailStatus: emailResult.fallback ? "console_fallback" : "sent",
       };
 
-      // Remove sensitive data in production
-      if (process.env.NODE_ENV === "production") {
-        delete response.password;
-        delete response.etherealPassword;
-      }
-
+      // Always send credentials - users need them to login
+      // Ethereal is a test email service, so credentials are safe to display
       res.json(response);
     } catch (error) {
       console.error("❌ Create new user error:", error);
