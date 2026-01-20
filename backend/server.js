@@ -52,24 +52,28 @@ if (isProduction) {
 }
 
 // Enable gzip compression for all responses
-app.use(compression({
-  level: 6,
-  threshold: 1024,
-  filter: (req, res) => {
-    if (req.headers['x-no-compression']) return false;
-    return compression.filter(req, res);
-  }
-}));
+app.use(
+  compression({
+    level: 6,
+    threshold: 1024,
+    filter: (req, res) => {
+      if (req.headers["x-no-compression"]) return false;
+      return compression.filter(req, res);
+    },
+  }),
+);
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Serve static files with caching headers for production
-app.use(express.static(path.join(__dirname, "../frontend"), {
-  maxAge: isProduction ? '1d' : 0,
-  etag: true,
-  lastModified: true
-}));
+app.use(
+  express.static(path.join(__dirname, "../frontend"), {
+    maxAge: isProduction ? "1d" : 0,
+    etag: true,
+    lastModified: true,
+  }),
+);
 
 // Health check endpoint for Railway
 app.get("/health", (req, res) => {

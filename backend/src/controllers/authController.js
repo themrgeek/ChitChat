@@ -104,7 +104,7 @@ const authController = {
         testAccount.email,
         avatarName,
         tempPassword,
-        testAccount.pass // Include Ethereal email password
+        testAccount.pass, // Include Ethereal email password
       );
 
       const response = {
@@ -121,7 +121,9 @@ const authController = {
       res.json(response);
     } catch (error) {
       console.error("❌ Create new user error:", error);
-      res.status(500).json({ error: "Failed to create new user: " + error.message });
+      res
+        .status(500)
+        .json({ error: "Failed to create new user: " + error.message });
     }
   },
 
@@ -143,7 +145,9 @@ const authController = {
       res.json({ email: user.email });
     } catch (error) {
       console.error("❌ Get user email error:", error);
-      res.status(500).json({ error: "Failed to get user email: " + error.message });
+      res
+        .status(500)
+        .json({ error: "Failed to get user email: " + error.message });
     }
   },
 
@@ -187,7 +191,7 @@ const authController = {
         email,
         otp,
         avatarName,
-        tempPassword
+        tempPassword,
       );
 
       const response = {
@@ -326,7 +330,7 @@ const authController = {
       const emailResult = await emailService.sendLoginOTPEmail(
         user.email,
         otp,
-        avatarName
+        avatarName,
       );
 
       console.log("✅ Login OTP sent for:", avatarName);
@@ -351,7 +355,9 @@ const authController = {
       const { email, avatarName, otp } = req.body;
 
       if (!email || !avatarName || !otp) {
-        return res.status(400).json({ error: "Email, avatar name, and OTP are required" });
+        return res
+          .status(400)
+          .json({ error: "Email, avatar name, and OTP are required" });
       }
 
       // Find user by avatar name (more reliable than email since emails are shared)
@@ -371,7 +377,8 @@ const authController = {
 
       if (!otpRecord) {
         return res.status(400).json({
-          error: "No login OTP found for this user. Please try logging in again.",
+          error:
+            "No login OTP found for this user. Please try logging in again.",
         });
       }
 
@@ -379,7 +386,9 @@ const authController = {
         otpStore.delete(loginOTPKey);
         return res
           .status(400)
-          .json({ error: "Login OTP has expired. Please try logging in again." });
+          .json({
+            error: "Login OTP has expired. Please try logging in again.",
+          });
       }
 
       if (otpRecord.otp !== otp) {
@@ -404,7 +413,9 @@ const authController = {
       });
     } catch (error) {
       console.error("❌ Verify login OTP error:", error);
-      res.status(500).json({ error: "Failed to verify login OTP: " + error.message });
+      res
+        .status(500)
+        .json({ error: "Failed to verify login OTP: " + error.message });
     }
   },
 
