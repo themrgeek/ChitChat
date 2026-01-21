@@ -1,11 +1,34 @@
 // WebRTC Signaling Handler for Audio/Video Calls
+// Supports: 1:1 calls, 1:many (broadcast), many:many (conference mesh)
+
 const activeCallSessions = new Map();
+const conferenceRooms = new Map(); // For multi-participant calls
+
+/**
+ * Conference Room Structure:
+ * {
+ *   roomId: string,
+ *   hostAvatar: string,
+ *   participants: Map<avatarName, { socketId, joinedAt, hasVideo, hasAudio }>,
+ *   callType: 'audio' | 'video',
+ *   createdAt: Date,
+ *   maxParticipants: number
+ * }
+ */
+
+function generateRoomId() {
+  return `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+function generateCallId() {
+  return `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
 
 function setupWebRTCSignaling(io, connectedUsers) {
   io.on("connection", (socket) => {
-    // ==================== VIDEO/AUDIO CALL SIGNALING ====================
+    // ==================== 1:1 CALL SIGNALING ====================
 
-    // Initiate a call
+    // Initiate a call (1:1)
     socket.on("call-initiate", (data) => {
       const { targetAvatar, callType, offer } = data;
       const targetSocketId = connectedUsers.get(targetAvatar);
@@ -24,7 +47,7 @@ function setupWebRTCSignaling(io, connectedUsers) {
       }
 
       // Create call session
-      const callId = `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const callId = generateCallId();
       activeCallSessions.set(callId, {
         callId,
         caller: callerAvatar,
@@ -32,6 +55,7 @@ function setupWebRTCSignaling(io, connectedUsers) {
         callType,
         status: "ringing",
         startedAt: new Date(),
+        isConference: false,
       });
 
       // Send call request to target
@@ -40,6 +64,7 @@ function setupWebRTCSignaling(io, connectedUsers) {
         callerAvatar,
         callType,
         offer,
+        isConference: false,
       });
 
       // Notify caller that call is ringing
@@ -50,7 +75,7 @@ function setupWebRTCSignaling(io, connectedUsers) {
       });
     });
 
-    // Accept incoming call
+    // Accept incoming call (1:1)
     socket.on("call-accept", (data) => {
       const { callId, callerAvatar, answer } = data;
       const callerSocketId = connectedUsers.get(callerAvatar);
@@ -92,7 +117,7 @@ function setupWebRTCSignaling(io, connectedUsers) {
       }
     });
 
-    // End active call
+    // End active call (1:1)
     socket.on("call-end", (data) => {
       const { callId, targetAvatar } = data;
       const targetSocketId = connectedUsers.get(targetAvatar);
@@ -118,7 +143,7 @@ function setupWebRTCSignaling(io, connectedUsers) {
       }
     });
 
-    // ICE candidate exchange
+    // ICE candidate exchange (1:1)
     socket.on("call-ice-candidate", (data) => {
       const { targetAvatar, candidate, callId } = data;
       const targetSocketId = connectedUsers.get(targetAvatar);
@@ -160,7 +185,7 @@ function setupWebRTCSignaling(io, connectedUsers) {
       }
     });
 
-    // Toggle audio/video
+    // Toggle audio/video (1:1)
     socket.on("call-media-toggle", (data) => {
       const { targetAvatar, callId, mediaType, enabled } = data;
       const targetSocketId = connectedUsers.get(targetAvatar);
@@ -175,9 +200,278 @@ function setupWebRTCSignaling(io, connectedUsers) {
       }
     });
 
-    // Handle disconnect during call
+    // ==================== CONFERENCE CALL SIGNALING (MESH) ====================
+
+    // Create a conference room
+    socket.on("conference-create", (data) => {
+      const { callType, maxParticipants = 10 } = data;
+      const hostAvatar = socket.avatarName;
+      const roomId = generateRoomId();
+
+      console.log(`🎥 Conference room ${roomId} created by ${hostAvatar}`);
+
+      const room = {
+        roomId,
+        hostAvatar,
+        participants: new Map(),
+        callType: callType || "video",
+        createdAt: new Date(),
+        maxParticipants,
+      };
+
+      // Add host as first participant
+      room.participants.set(hostAvatar, {
+        socketId: socket.id,
+        joinedAt: new Date(),
+        hasVideo: callType === "video",
+        hasAudio: true,
+        isHost: true,
+      });
+
+      conferenceRooms.set(roomId, room);
+
+      // Join socket.io room for broadcasting
+      socket.join(roomId);
+
+      socket.emit("conference-created", {
+        roomId,
+        hostAvatar,
+        callType,
+        participants: [hostAvatar],
+      });
+    });
+
+    // Invite user to conference
+    socket.on("conference-invite", (data) => {
+      const { roomId, targetAvatar } = data;
+      const targetSocketId = connectedUsers.get(targetAvatar);
+      const room = conferenceRooms.get(roomId);
+
+      if (!room) {
+        socket.emit("conference-error", { message: "Room not found", roomId });
+        return;
+      }
+
+      if (!targetSocketId) {
+        socket.emit("conference-error", {
+          message: "User is offline",
+          targetAvatar,
+        });
+        return;
+      }
+
+      if (room.participants.size >= room.maxParticipants) {
+        socket.emit("conference-error", {
+          message: "Room is full",
+          roomId,
+        });
+        return;
+      }
+
+      console.log(
+        `📨 ${socket.avatarName} inviting ${targetAvatar} to room ${roomId}`,
+      );
+
+      // Get current participant list
+      const participantList = Array.from(room.participants.keys());
+
+      socket.to(targetSocketId).emit("conference-invite", {
+        roomId,
+        inviterAvatar: socket.avatarName,
+        hostAvatar: room.hostAvatar,
+        callType: room.callType,
+        participants: participantList,
+      });
+    });
+
+    // Join conference room
+    socket.on("conference-join", (data) => {
+      const { roomId } = data;
+      const joinerAvatar = socket.avatarName;
+      const room = conferenceRooms.get(roomId);
+
+      if (!room) {
+        socket.emit("conference-error", { message: "Room not found", roomId });
+        return;
+      }
+
+      if (room.participants.size >= room.maxParticipants) {
+        socket.emit("conference-error", { message: "Room is full", roomId });
+        return;
+      }
+
+      console.log(`👤 ${joinerAvatar} joining conference ${roomId}`);
+
+      // Get existing participants before adding new one
+      const existingParticipants = Array.from(room.participants.entries()).map(
+        ([avatar, info]) => ({
+          avatar,
+          socketId: info.socketId,
+          hasVideo: info.hasVideo,
+          hasAudio: info.hasAudio,
+        }),
+      );
+
+      // Add new participant
+      room.participants.set(joinerAvatar, {
+        socketId: socket.id,
+        joinedAt: new Date(),
+        hasVideo: room.callType === "video",
+        hasAudio: true,
+        isHost: false,
+      });
+
+      // Join socket.io room
+      socket.join(roomId);
+
+      // Notify joiner of existing participants (for mesh connection setup)
+      socket.emit("conference-joined", {
+        roomId,
+        callType: room.callType,
+        participants: existingParticipants,
+        isHost: room.hostAvatar === joinerAvatar,
+      });
+
+      // Notify existing participants of new joiner
+      socket.to(roomId).emit("conference-participant-joined", {
+        roomId,
+        avatar: joinerAvatar,
+        socketId: socket.id,
+        hasVideo: room.callType === "video",
+        hasAudio: true,
+      });
+    });
+
+    // Conference mesh: send offer to specific participant
+    socket.on("conference-offer", (data) => {
+      const { roomId, targetAvatar, offer } = data;
+      const room = conferenceRooms.get(roomId);
+
+      if (!room) return;
+
+      const targetInfo = room.participants.get(targetAvatar);
+      if (!targetInfo) return;
+
+      console.log(
+        `🔗 Mesh offer: ${socket.avatarName} -> ${targetAvatar} in ${roomId}`,
+      );
+
+      socket.to(targetInfo.socketId).emit("conference-offer", {
+        roomId,
+        fromAvatar: socket.avatarName,
+        offer,
+      });
+    });
+
+    // Conference mesh: send answer to specific participant
+    socket.on("conference-answer", (data) => {
+      const { roomId, targetAvatar, answer } = data;
+      const room = conferenceRooms.get(roomId);
+
+      if (!room) return;
+
+      const targetInfo = room.participants.get(targetAvatar);
+      if (!targetInfo) return;
+
+      console.log(
+        `🔗 Mesh answer: ${socket.avatarName} -> ${targetAvatar} in ${roomId}`,
+      );
+
+      socket.to(targetInfo.socketId).emit("conference-answer", {
+        roomId,
+        fromAvatar: socket.avatarName,
+        answer,
+      });
+    });
+
+    // Conference mesh: ICE candidate to specific participant
+    socket.on("conference-ice-candidate", (data) => {
+      const { roomId, targetAvatar, candidate } = data;
+      const room = conferenceRooms.get(roomId);
+
+      if (!room) return;
+
+      const targetInfo = room.participants.get(targetAvatar);
+      if (!targetInfo) return;
+
+      socket.to(targetInfo.socketId).emit("conference-ice-candidate", {
+        roomId,
+        fromAvatar: socket.avatarName,
+        candidate,
+      });
+    });
+
+    // Toggle media in conference
+    socket.on("conference-media-toggle", (data) => {
+      const { roomId, mediaType, enabled } = data;
+      const room = conferenceRooms.get(roomId);
+
+      if (!room) return;
+
+      const participant = room.participants.get(socket.avatarName);
+      if (!participant) return;
+
+      // Update participant state
+      if (mediaType === "video") {
+        participant.hasVideo = enabled;
+      } else if (mediaType === "audio") {
+        participant.hasAudio = enabled;
+      }
+
+      // Broadcast to all participants
+      socket.to(roomId).emit("conference-media-toggle", {
+        roomId,
+        avatar: socket.avatarName,
+        mediaType,
+        enabled,
+      });
+    });
+
+    // Leave conference
+    socket.on("conference-leave", (data) => {
+      const { roomId } = data;
+      handleConferenceLeave(socket, roomId, io);
+    });
+
+    // End conference (host only)
+    socket.on("conference-end", (data) => {
+      const { roomId } = data;
+      const room = conferenceRooms.get(roomId);
+
+      if (!room) return;
+
+      // Only host can end conference
+      if (room.hostAvatar !== socket.avatarName) {
+        socket.emit("conference-error", {
+          message: "Only host can end the conference",
+        });
+        return;
+      }
+
+      console.log(`🔚 Conference ${roomId} ended by host ${socket.avatarName}`);
+
+      // Notify all participants
+      io.to(roomId).emit("conference-ended", {
+        roomId,
+        endedBy: socket.avatarName,
+        reason: "Host ended the conference",
+      });
+
+      // Clean up
+      for (const [avatar, info] of room.participants) {
+        const participantSocket = io.sockets.sockets.get(info.socketId);
+        if (participantSocket) {
+          participantSocket.leave(roomId);
+        }
+      }
+
+      conferenceRooms.delete(roomId);
+    });
+
+    // ==================== DISCONNECT HANDLING ====================
+
     socket.on("disconnect", () => {
-      // Find and end any active calls for this user
+      // Handle 1:1 calls
       for (const [callId, session] of activeCallSessions.entries()) {
         if (
           session.caller === socket.avatarName ||
@@ -200,7 +494,56 @@ function setupWebRTCSignaling(io, connectedUsers) {
           activeCallSessions.delete(callId);
         }
       }
+
+      // Handle conference rooms
+      for (const [roomId, room] of conferenceRooms.entries()) {
+        if (room.participants.has(socket.avatarName)) {
+          handleConferenceLeave(socket, roomId, io);
+        }
+      }
     });
+  });
+}
+
+// Helper: Handle participant leaving conference
+function handleConferenceLeave(socket, roomId, io) {
+  const room = conferenceRooms.get(roomId);
+  if (!room) return;
+
+  const leaverAvatar = socket.avatarName;
+  const wasHost = room.hostAvatar === leaverAvatar;
+
+  console.log(`👋 ${leaverAvatar} leaving conference ${roomId}`);
+
+  // Remove from participants
+  room.participants.delete(leaverAvatar);
+  socket.leave(roomId);
+
+  // If room is empty, delete it
+  if (room.participants.size === 0) {
+    console.log(`🗑️ Conference ${roomId} is empty, deleting`);
+    conferenceRooms.delete(roomId);
+    return;
+  }
+
+  // If host left, assign new host
+  if (wasHost) {
+    const newHost = room.participants.keys().next().value;
+    room.hostAvatar = newHost;
+    console.log(`👑 New host for ${roomId}: ${newHost}`);
+
+    io.to(roomId).emit("conference-host-changed", {
+      roomId,
+      newHostAvatar: newHost,
+      previousHostAvatar: leaverAvatar,
+    });
+  }
+
+  // Notify remaining participants
+  socket.to(roomId).emit("conference-participant-left", {
+    roomId,
+    avatar: leaverAvatar,
+    remainingParticipants: Array.from(room.participants.keys()),
   });
 }
 
@@ -208,4 +551,17 @@ function getActiveCallSessions() {
   return activeCallSessions;
 }
 
-module.exports = { setupWebRTCSignaling, getActiveCallSessions };
+function getConferenceRooms() {
+  return conferenceRooms;
+}
+
+function getConferenceRoom(roomId) {
+  return conferenceRooms.get(roomId);
+}
+
+module.exports = {
+  setupWebRTCSignaling,
+  getActiveCallSessions,
+  getConferenceRooms,
+  getConferenceRoom,
+};

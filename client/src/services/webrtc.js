@@ -65,6 +65,12 @@ class WebRTCService {
     this.statsInterval = null;
     this.lastStats = null;
 
+    // Conference/mesh support
+    this.currentRoomId = null;
+    this.isConference = false;
+    this.peerConnections = new Map(); // Map<avatarName, RTCPeerConnection>
+    this.remoteStreams = new Map(); // Map<avatarName, MediaStream>
+
     // ICE servers configuration (STUN/TURN)
     this.iceServers = {
       iceServers: getIceServers(),
@@ -207,6 +213,229 @@ class WebRTCService {
       } catch (error) {
         console.error("Error setting renegotiation answer:", error);
       }
+    });
+
+    // ==================== CONFERENCE CALL LISTENERS ====================
+
+    // Conference created
+    this.socket.on("conference-created", (data) => {
+      const { roomId, hostAvatar, callType, participants } = data;
+      console.log(`🎥 Conference created: ${roomId}`);
+
+      this.currentRoomId = roomId;
+      this.isConference = true;
+      this.callType = callType;
+
+      useChatStore.getState().setActiveCall({
+        roomId,
+        callType,
+        isConference: true,
+        isHost: true,
+        targetAvatar: "Conference",
+      });
+      useChatStore.getState().setCallParticipants(participants);
+      useChatStore.getState().setCallStatus("connected");
+
+      useUIStore.getState().showToast("Conference room created!", "success");
+    });
+
+    // Conference invite received
+    this.socket.on("conference-invite", (data) => {
+      const { roomId, inviterAvatar, hostAvatar, callType, participants } =
+        data;
+      console.log(`📨 Conference invite from ${inviterAvatar}`);
+
+      useChatStore.getState().setIncomingCall({
+        roomId,
+        callerAvatar: inviterAvatar,
+        hostAvatar,
+        callType,
+        participants,
+        isConference: true,
+      });
+
+      useUIStore
+        .getState()
+        .showToast(`${inviterAvatar} invited you to a conference`, "info");
+    });
+
+    // Joined conference
+    this.socket.on("conference-joined", async (data) => {
+      const { roomId, callType, participants, isHost } = data;
+      console.log(
+        `👤 Joined conference: ${roomId} with ${participants.length} participants`,
+      );
+
+      this.currentRoomId = roomId;
+      this.isConference = true;
+      this.callType = callType;
+
+      useChatStore.getState().setActiveCall({
+        roomId,
+        callType,
+        isConference: true,
+        isHost,
+        targetAvatar: "Conference",
+      });
+      useChatStore
+        .getState()
+        .setCallParticipants(participants.map((p) => p.avatar));
+      useChatStore.getState().setCallStatus("connected");
+
+      // Create mesh connections to all existing participants
+      for (const participant of participants) {
+        await this.createMeshConnection(participant.avatar, true);
+      }
+
+      useUIStore.getState().showToast("Joined conference!", "success");
+    });
+
+    // New participant joined conference
+    this.socket.on("conference-participant-joined", async (data) => {
+      const { roomId, avatar, hasVideo, hasAudio } = data;
+      console.log(`👤 ${avatar} joined conference ${roomId}`);
+
+      // Add to participants list
+      const currentParticipants =
+        useChatStore.getState().callParticipants || [];
+      if (!currentParticipants.includes(avatar)) {
+        useChatStore
+          .getState()
+          .setCallParticipants([...currentParticipants, avatar]);
+      }
+
+      // Wait for their offer (they will initiate to us since they are new)
+      useUIStore.getState().showToast(`${avatar} joined the call`, "info");
+    });
+
+    // Participant left conference
+    this.socket.on("conference-participant-left", (data) => {
+      const { roomId, avatar, remainingParticipants } = data;
+      console.log(`👋 ${avatar} left conference ${roomId}`);
+
+      // Close peer connection to this participant
+      this.closeMeshConnection(avatar);
+
+      // Update participants list
+      useChatStore.getState().setCallParticipants(remainingParticipants);
+
+      useUIStore.getState().showToast(`${avatar} left the call`, "info");
+    });
+
+    // Conference host changed
+    this.socket.on("conference-host-changed", (data) => {
+      const { roomId, newHostAvatar, previousHostAvatar } = data;
+      console.log(`👑 New host: ${newHostAvatar}`);
+
+      const avatarName = useChatStore.getState().user?.avatarName;
+      const isNewHost = newHostAvatar === avatarName;
+
+      if (isNewHost) {
+        useUIStore.getState().showToast("You are now the host", "info");
+      } else {
+        useUIStore
+          .getState()
+          .showToast(`${newHostAvatar} is now the host`, "info");
+      }
+
+      // Update active call state
+      const activeCall = useChatStore.getState().activeCall;
+      if (activeCall) {
+        useChatStore.getState().setActiveCall({
+          ...activeCall,
+          isHost: isNewHost,
+        });
+      }
+    });
+
+    // Conference ended
+    this.socket.on("conference-ended", (data) => {
+      const { roomId, endedBy, reason } = data;
+      console.log(`🔚 Conference ${roomId} ended by ${endedBy}`);
+
+      useUIStore.getState().showToast(reason || "Conference ended", "info");
+      this.cleanupConference();
+      useChatStore.getState().setCallStatus(null);
+      useChatStore.getState().setActiveCall(null);
+    });
+
+    // Conference mesh: receive offer
+    this.socket.on("conference-offer", async (data) => {
+      const { roomId, fromAvatar, offer } = data;
+      console.log(`🔗 Received mesh offer from ${fromAvatar}`);
+
+      try {
+        // Create peer connection for this participant if needed
+        let pc = this.peerConnections.get(fromAvatar);
+        if (!pc) {
+          pc = this.createMeshPeerConnection(fromAvatar);
+        }
+
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        this.socket.emit("conference-answer", {
+          roomId: this.currentRoomId,
+          targetAvatar: fromAvatar,
+          answer: pc.localDescription,
+        });
+      } catch (error) {
+        console.error(`Error handling offer from ${fromAvatar}:`, error);
+      }
+    });
+
+    // Conference mesh: receive answer
+    this.socket.on("conference-answer", async (data) => {
+      const { roomId, fromAvatar, answer } = data;
+      console.log(`🔗 Received mesh answer from ${fromAvatar}`);
+
+      try {
+        const pc = this.peerConnections.get(fromAvatar);
+        if (pc) {
+          await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        }
+      } catch (error) {
+        console.error(`Error handling answer from ${fromAvatar}:`, error);
+      }
+    });
+
+    // Conference mesh: ICE candidate
+    this.socket.on("conference-ice-candidate", async (data) => {
+      const { roomId, fromAvatar, candidate } = data;
+
+      try {
+        const pc = this.peerConnections.get(fromAvatar);
+        if (pc && candidate) {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        }
+      } catch (error) {
+        console.error(`Error adding ICE candidate from ${fromAvatar}:`, error);
+      }
+    });
+
+    // Conference media toggle
+    this.socket.on("conference-media-toggle", (data) => {
+      const { roomId, avatar, mediaType, enabled } = data;
+
+      // Update remote streams state
+      useChatStore
+        .getState()
+        .updateRemoteMediaState(mediaType, enabled, avatar);
+
+      useUIStore
+        .getState()
+        .showToast(
+          `${avatar} ${enabled ? "enabled" : "disabled"} ${mediaType}`,
+          "info",
+        );
+    });
+
+    // Conference error
+    this.socket.on("conference-error", (data) => {
+      const { message } = data;
+      console.error("Conference error:", message);
+      useUIStore.getState().showToast(message, "error");
     });
   }
 
@@ -671,6 +900,282 @@ class WebRTCService {
   // Get current connection quality
   getConnectionQuality() {
     return this.connectionQuality;
+  }
+
+  // ==================== CONFERENCE CALL METHODS ====================
+
+  // Create a new conference room
+  async createConference(callType = "video") {
+    console.log(`🎥 Creating ${callType} conference`);
+
+    try {
+      await this.getUserMedia(callType);
+      this.isConference = true;
+      this.callType = callType;
+
+      this.socket.emit("conference-create", {
+        callType,
+        maxParticipants: 10,
+      });
+
+      useChatStore.getState().setCallStatus("creating");
+    } catch (error) {
+      console.error("Error creating conference:", error);
+      useUIStore
+        .getState()
+        .showToast(`Failed to create conference: ${error.message}`, "error");
+    }
+  }
+
+  // Invite user to conference
+  inviteToConference(targetAvatar) {
+    if (!this.currentRoomId) {
+      console.error("No active conference room");
+      return;
+    }
+
+    console.log(
+      `📨 Inviting ${targetAvatar} to conference ${this.currentRoomId}`,
+    );
+
+    this.socket.emit("conference-invite", {
+      roomId: this.currentRoomId,
+      targetAvatar,
+    });
+
+    useUIStore.getState().showToast(`Invited ${targetAvatar}`, "info");
+  }
+
+  // Accept conference invite
+  async acceptConferenceInvite(incomingCall) {
+    const { roomId, callType } = incomingCall;
+    console.log(`✅ Accepting conference invite to ${roomId}`);
+
+    try {
+      await this.getUserMedia(callType);
+      this.isConference = true;
+      this.callType = callType;
+
+      this.socket.emit("conference-join", { roomId });
+      useChatStore.getState().setIncomingCall(null);
+    } catch (error) {
+      console.error("Error joining conference:", error);
+      useUIStore
+        .getState()
+        .showToast(`Failed to join: ${error.message}`, "error");
+    }
+  }
+
+  // Add participant to existing call (upgrades to conference if 1:1)
+  async addParticipant(targetAvatar) {
+    if (this.isConference) {
+      // Already in conference, just invite
+      this.inviteToConference(targetAvatar);
+    } else {
+      // Upgrade 1:1 call to conference
+      console.log("📞 Upgrading to conference call");
+
+      const currentCall = useChatStore.getState().activeCall;
+      if (!currentCall) return;
+
+      // Create conference room
+      this.socket.emit("conference-create", {
+        callType: this.callType || "video",
+        maxParticipants: 10,
+      });
+
+      // Wait for room creation, then invite both parties
+      // The conference-created handler will set up the room
+      // Store pending invite
+      this._pendingConferenceInvites = [currentCall.targetAvatar, targetAvatar];
+    }
+  }
+
+  // Leave conference
+  leaveConference() {
+    if (!this.currentRoomId) return;
+
+    console.log(`👋 Leaving conference ${this.currentRoomId}`);
+
+    this.socket.emit("conference-leave", {
+      roomId: this.currentRoomId,
+    });
+
+    this.cleanupConference();
+    useChatStore.getState().setCallStatus(null);
+    useChatStore.getState().setActiveCall(null);
+  }
+
+  // End conference (host only)
+  endConference() {
+    if (!this.currentRoomId) return;
+
+    console.log(`🔚 Ending conference ${this.currentRoomId}`);
+
+    this.socket.emit("conference-end", {
+      roomId: this.currentRoomId,
+    });
+
+    this.cleanupConference();
+    useChatStore.getState().setCallStatus(null);
+    useChatStore.getState().setActiveCall(null);
+  }
+
+  // Create mesh peer connection for a participant
+  createMeshPeerConnection(targetAvatar) {
+    console.log(`🔗 Creating mesh connection to ${targetAvatar}`);
+
+    const pc = new RTCPeerConnection(this.iceServers);
+    this.peerConnections.set(targetAvatar, pc);
+
+    // Add local tracks
+    if (this.localStream) {
+      this.localStream.getTracks().forEach((track) => {
+        pc.addTrack(track, this.localStream);
+      });
+    }
+
+    // Handle ICE candidates
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        this.socket.emit("conference-ice-candidate", {
+          roomId: this.currentRoomId,
+          targetAvatar,
+          candidate: event.candidate,
+        });
+      }
+    };
+
+    // Handle connection state
+    pc.onconnectionstatechange = () => {
+      console.log(`Mesh connection to ${targetAvatar}: ${pc.connectionState}`);
+
+      if (pc.connectionState === "failed") {
+        useUIStore
+          .getState()
+          .showToast(`Connection to ${targetAvatar} failed`, "warning");
+      }
+    };
+
+    // Handle remote stream
+    pc.ontrack = (event) => {
+      console.log(`Received track from ${targetAvatar}:`, event.track.kind);
+      const stream = event.streams[0];
+      this.remoteStreams.set(targetAvatar, stream);
+
+      // Update store with all remote streams
+      useChatStore
+        .getState()
+        .setRemoteStreams(Object.fromEntries(this.remoteStreams));
+    };
+
+    return pc;
+  }
+
+  // Create mesh connection and send offer
+  async createMeshConnection(targetAvatar, sendOffer = true) {
+    const pc = this.createMeshPeerConnection(targetAvatar);
+
+    if (sendOffer) {
+      try {
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: this.callType === "video",
+        });
+        await pc.setLocalDescription(offer);
+
+        this.socket.emit("conference-offer", {
+          roomId: this.currentRoomId,
+          targetAvatar,
+          offer: pc.localDescription,
+        });
+      } catch (error) {
+        console.error(`Error creating offer for ${targetAvatar}:`, error);
+      }
+    }
+
+    return pc;
+  }
+
+  // Close mesh connection to a participant
+  closeMeshConnection(targetAvatar) {
+    const pc = this.peerConnections.get(targetAvatar);
+    if (pc) {
+      pc.close();
+      this.peerConnections.delete(targetAvatar);
+    }
+
+    this.remoteStreams.delete(targetAvatar);
+    useChatStore
+      .getState()
+      .setRemoteStreams(Object.fromEntries(this.remoteStreams));
+  }
+
+  // Toggle media in conference
+  toggleConferenceAudio() {
+    const enabled = this.toggleAudio();
+
+    if (this.currentRoomId) {
+      this.socket.emit("conference-media-toggle", {
+        roomId: this.currentRoomId,
+        mediaType: "audio",
+        enabled,
+      });
+    }
+
+    return enabled;
+  }
+
+  toggleConferenceVideo() {
+    const enabled = this.toggleVideo();
+
+    if (this.currentRoomId) {
+      this.socket.emit("conference-media-toggle", {
+        roomId: this.currentRoomId,
+        mediaType: "video",
+        enabled,
+      });
+    }
+
+    return enabled;
+  }
+
+  // Cleanup conference state
+  cleanupConference() {
+    // Close all mesh peer connections
+    for (const [avatar, pc] of this.peerConnections) {
+      pc.close();
+    }
+    this.peerConnections.clear();
+    this.remoteStreams.clear();
+
+    // Stop local stream
+    if (this.localStream) {
+      this.localStream.getTracks().forEach((track) => track.stop());
+      this.localStream = null;
+    }
+
+    this.currentRoomId = null;
+    this.isConference = false;
+    this.callType = null;
+
+    useChatStore.getState().setLocalStream(null);
+    useChatStore.getState().setRemoteStreams({});
+    useChatStore.getState().setCallParticipants([]);
+  }
+
+  // Override endCall to handle both 1:1 and conference
+  endCallUnified() {
+    if (this.isConference) {
+      const activeCall = useChatStore.getState().activeCall;
+      if (activeCall?.isHost) {
+        this.endConference();
+      } else {
+        this.leaveConference();
+      }
+    } else {
+      this.endCall();
+    }
   }
 }
 

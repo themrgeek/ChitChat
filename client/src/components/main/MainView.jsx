@@ -2,12 +2,12 @@ import { useNavigate } from "react-router-dom";
 import {
   MessageSquare,
   Phone,
-  Video,
   LogOut,
   User,
   Shield,
   Wifi,
   WifiOff,
+  Users,
 } from "lucide-react";
 import { useAuthStore, useChatStore, useUIStore } from "../../store";
 import socketService from "../../services/socket";
@@ -27,6 +27,10 @@ export default function MainView() {
 
   const handleChat = () => {
     navigate("/chat");
+  };
+
+  const handleCall = () => {
+    navigate("/chat?mode=call");
   };
 
   return (
@@ -72,24 +76,24 @@ export default function MainView() {
             </button>
 
             <button
-              disabled
-              className="terminal-btn opacity-50 cursor-not-allowed flex items-center justify-center gap-3"
+              onClick={handleCall}
+              className="terminal-btn flex items-center justify-center gap-3"
             >
               <Phone className="w-5 h-5" />
-              AUDIO CALL
-              <span className="text-xs bg-primary-900 px-2 py-0.5 rounded">
-                Soon
+              CALL
+              <span className="text-xs bg-primary-500/20 px-2 py-0.5 rounded text-primary-400">
+                Audio / Video
               </span>
             </button>
 
             <button
-              disabled
-              className="terminal-btn opacity-50 cursor-not-allowed flex items-center justify-center gap-3"
+              onClick={() => navigate("/chat?mode=conference")}
+              className="terminal-btn flex items-center justify-center gap-3"
             >
-              <Video className="w-5 h-5" />
-              VIDEO CALL
-              <span className="text-xs bg-primary-900 px-2 py-0.5 rounded">
-                Soon
+              <Users className="w-5 h-5" />
+              CONFERENCE
+              <span className="text-xs bg-primary-500/20 px-2 py-0.5 rounded text-primary-400">
+                Group Call
               </span>
             </button>
           </div>
@@ -101,8 +105,8 @@ export default function MainView() {
               <div>
                 <p className="text-xs text-primary-600">End-to-End Encrypted</p>
                 <p className="text-xs text-primary-700 mt-1">
-                  All messages are encrypted with AES-256. Keys are generated
-                  locally.
+                  All messages & calls are encrypted with AES-256. Keys are
+                  generated locally.
                 </p>
               </div>
             </div>

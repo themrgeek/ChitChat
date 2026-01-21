@@ -45,19 +45,27 @@ export const useChatStore = create((set, get) => ({
   messages: [],
   contacts: [],
   typingUsers: new Set(),
+  onlineUsers: [], // List of online users for conference invites
 
   // Call state
   activeCall: null,
-  callStatus: null, // null, 'calling', 'ringing', 'connecting', 'connected'
+  callStatus: null, // null, 'calling', 'ringing', 'connecting', 'connected', 'creating'
   incomingCall: null,
   localStream: null,
   remoteStream: null,
   remoteMediaState: { audio: true, video: true },
   connectionQuality: null, // null, 'excellent', 'good', 'fair', 'poor', 'disconnected'
 
+  // Conference state
+  callParticipants: [], // Array of avatar names in conference
+  remoteStreams: {}, // Map of avatarName -> MediaStream for conference
+  participantMediaStates: {}, // Map of avatarName -> { audio: bool, video: bool }
+
   setSocket: (socket) => set({ socket }),
 
   setConnected: (connected) => set({ connected }),
+
+  setOnlineUsers: (users) => set({ onlineUsers: users }),
 
   setCurrentSession: (session) =>
     set({ currentSession: session, messages: [] }),
@@ -112,10 +120,44 @@ export const useChatStore = create((set, get) => ({
   setLocalStream: (stream) => set({ localStream: stream }),
   setRemoteStream: (stream) => set({ remoteStream: stream }),
   setConnectionQuality: (quality) => set({ connectionQuality: quality }),
-  updateRemoteMediaState: (mediaType, enabled) =>
-    set((state) => ({
-      remoteMediaState: { ...state.remoteMediaState, [mediaType]: enabled },
-    })),
+
+  // Conference actions
+  setCallParticipants: (participants) =>
+    set({ callParticipants: participants }),
+  setRemoteStreams: (streams) => set({ remoteStreams: streams }),
+
+  updateRemoteMediaState: (mediaType, enabled, avatarName = null) =>
+    set((state) => {
+      if (avatarName) {
+        // Conference: update specific participant
+        const participantStates = { ...state.participantMediaStates };
+        if (!participantStates[avatarName]) {
+          participantStates[avatarName] = { audio: true, video: true };
+        }
+        participantStates[avatarName][mediaType] = enabled;
+        return { participantMediaStates: participantStates };
+      } else {
+        // 1:1 call
+        return {
+          remoteMediaState: { ...state.remoteMediaState, [mediaType]: enabled },
+        };
+      }
+    }),
+
+  // Reset call state
+  resetCallState: () =>
+    set({
+      activeCall: null,
+      callStatus: null,
+      incomingCall: null,
+      localStream: null,
+      remoteStream: null,
+      remoteMediaState: { audio: true, video: true },
+      connectionQuality: null,
+      callParticipants: [],
+      remoteStreams: {},
+      participantMediaStates: {},
+    }),
 }));
 
 export const useUIStore = create((set) => ({
