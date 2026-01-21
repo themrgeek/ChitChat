@@ -20,11 +20,13 @@ const LoadingFallback = () => (
 );
 
 // ⚡ Lazy load call components
-const IncomingCallModal = lazy(() => 
-  import("./components/CallView").then(m => ({ default: m.IncomingCallModal }))
+const IncomingCallModal = lazy(() =>
+  import("./components/CallView").then((m) => ({
+    default: m.IncomingCallModal,
+  })),
 );
-const ActiveCallView = lazy(() => 
-  import("./components/CallView").then(m => ({ default: m.ActiveCallView }))
+const ActiveCallView = lazy(() =>
+  import("./components/CallView").then((m) => ({ default: m.ActiveCallView })),
 );
 
 function App() {
@@ -34,10 +36,10 @@ function App() {
 
   useEffect(() => {
     // ⚡ Pre-warm API connection
-    if (typeof window !== 'undefined') {
-      import('./services/api').then(({ api }) => api.warmConnection?.());
+    if (typeof window !== "undefined") {
+      import("./services/api").then(({ api }) => api.warmConnection?.());
     }
-    
+
     // Connect socket when authenticated
     if (isAuthenticated) {
       const socket = socketService.connect();

@@ -14,7 +14,7 @@ class ApiService {
   async warmConnection() {
     try {
       // Ping health endpoint to establish connection
-      fetch('/api/health', { method: 'GET', keepalive: true }).catch(() => {});
+      fetch("/api/health", { method: "GET", keepalive: true }).catch(() => {});
     } catch (e) {
       // Ignore errors
     }
@@ -38,10 +38,10 @@ class ApiService {
   async request(endpoint, options = {}) {
     const startTime = performance.now();
     const url = `${API_BASE}${endpoint}`;
-    
+
     // ⚡ Check cache for GET requests
-    const cacheKey = `${options.method || 'GET'}-${url}`;
-    if (!options.method || options.method === 'GET') {
+    const cacheKey = `${options.method || "GET"}-${url}`;
+    if (!options.method || options.method === "GET") {
       const cached = this.getCached(cacheKey);
       if (cached) {
         console.log(`⚡ Cache hit: ${endpoint} (0ms)`);
@@ -52,7 +52,7 @@ class ApiService {
     const config = {
       headers: {
         "Content-Type": "application/json",
-        "Connection": "keep-alive", // ⚡ Keep connection alive
+        Connection: "keep-alive", // ⚡ Keep connection alive
         ...options.headers,
       },
       keepalive: true, // ⚡ Keep connection alive
@@ -62,7 +62,7 @@ class ApiService {
     try {
       const response = await fetch(url, config);
       const data = await response.json();
-      
+
       const duration = Math.round(performance.now() - startTime);
       console.log(`⚡ API: ${endpoint} - ${duration}ms`);
 
@@ -71,7 +71,7 @@ class ApiService {
       }
 
       // ⚡ Cache GET responses
-      if (!options.method || options.method === 'GET') {
+      if (!options.method || options.method === "GET") {
         this.setCache(cacheKey, data);
       }
 
