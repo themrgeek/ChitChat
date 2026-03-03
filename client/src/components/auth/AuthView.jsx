@@ -124,15 +124,15 @@ export default function AuthView() {
   };
 
   return (
-    <div className="min-h-screen min-h-[100dvh] flex items-center justify-center p-4 safe-top safe-bottom">
+    <div className="min-h-screen min-h-[100dvh] flex items-center justify-center px-3 py-4 sm:p-4 safe-top safe-bottom">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary-900/30 border border-primary-700 mb-4 animate-pulse-glow">
-            <User className="w-10 h-10 text-primary-500" />
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary-900/30 border border-primary-700 mb-3 sm:mb-4 animate-pulse-glow">
+            <User className="w-8 h-8 sm:w-10 sm:h-10 text-primary-500" />
           </div>
-          <h1 className="text-3xl font-bold glow-text mb-2">DOOT</h1>
-          <p className="text-primary-700">
+          <h1 className="text-2xl sm:text-3xl font-bold glow-text mb-2">DOOT</h1>
+          <p className="text-sm sm:text-base text-primary-700">
             Fully Un-traceable Secure Messaging
           </p>
         </div>
@@ -140,10 +140,10 @@ export default function AuthView() {
         {/* Selection Mode */}
         {mode === "select" && (
           <div className="cyber-card animate-fade-in">
-            <h2 className="text-lg font-semibold text-primary-500 mb-4 text-center">
+            <h2 className="text-base sm:text-lg font-semibold text-primary-500 mb-3 sm:mb-4 text-center">
               Choose Your Path
             </h2>
-            <p className="text-sm text-primary-700 text-center mb-6">
+            <p className="text-xs sm:text-sm text-primary-700 text-center mb-4 sm:mb-6">
               Select how you'd like to proceed with your secure identity
             </p>
 
@@ -337,7 +337,7 @@ export default function AuthView() {
             </div>
 
             <div className="bg-primary-900/20 border border-primary-700 rounded-lg p-3 mb-4">
-              <p className="text-sm text-primary-500">
+              <p className="text-sm text-primary-500 break-all">
                 📧 OTP sent to:{" "}
                 <span className="font-mono">{loginData.email}</span>
               </p>
@@ -354,7 +354,7 @@ export default function AuthView() {
                   onChange={(e) =>
                     setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
                   }
-                  className="terminal-input text-center text-2xl tracking-[0.5em]"
+                  className="terminal-input text-center text-xl sm:text-2xl tracking-[0.25em] sm:tracking-[0.5em]"
                   placeholder="000000"
                   maxLength={6}
                   autoComplete="one-time-code"
