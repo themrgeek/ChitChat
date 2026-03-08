@@ -131,7 +131,9 @@ export default function AuthView() {
           <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary-900/30 border border-primary-700 mb-3 sm:mb-4 animate-pulse-glow">
             <User className="w-8 h-8 sm:w-10 sm:h-10 text-primary-500" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold glow-text mb-2">DOOT</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold glow-text mb-2">
+            DOOT
+          </h1>
           <p className="text-sm sm:text-base text-primary-700">
             Fully Un-traceable Secure Messaging
           </p>
