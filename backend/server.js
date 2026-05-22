@@ -8,11 +8,16 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 require("dotenv").config();
 
-const { connectDB } = require("./src/config/database");
-const authRoutes = require("./src/routes/auth");
-const chatRoutes = require("./src/routes/chat");
-const { setupSocket, getConnectedUsers } = require("./src/utils/socketHandler");
-const { setupWebRTCSignaling } = require("./src/utils/webrtcHandler");
+const { connectDB } = require("./src/shared/config/database");
+const authRoutes = require("./src/features/auth/routes/auth-routes");
+const chatRoutes = require("./src/features/chat/routes/chat-routes");
+const {
+  setupSocket,
+  getConnectedUsers,
+} = require("./src/features/chat/handlers/socket-handler");
+const {
+  setupWebRTCSignaling,
+} = require("./src/features/chat/handlers/webrtc-handler");
 
 const app = express();
 const server = http.createServer(app);
@@ -45,6 +50,7 @@ const io = socketIo(server, {
     credentials: true,
   },
   // ⚡ PERFORMANCE: WebSocket only, no polling for speed
+  // What is polling? Polling is a technique where the client periodically sends HTTP requests to the server to check for new data. This is useful for long-running connections where the server needs to send data to the client frequently.
   transports: ["websocket"],
   allowUpgrades: false, // ⚡ Don't allow upgrades, start with WS
   upgradeTimeout: 5000, // ⚡ Faster upgrade timeout
@@ -64,6 +70,7 @@ const io = socketIo(server, {
 // ==================== SECURITY MIDDLEWARE ====================
 
 // Helmet for security headers (configured for React SPA)
+// What is helmet? Helmet is a middleware that helps you secure your Express app by setting various HTTP headers.
 app.use(
   helmet({
     contentSecurityPolicy: isProduction

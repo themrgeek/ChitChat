@@ -10,9 +10,20 @@ const connectDB = async () => {
     const isProduction = process.env.NODE_ENV === "production";
 
     const options = {
+      // what is pool size?
+      // Pool size is the maximum number of connections that can be open to the database.
+      // The default pool size is 10.
+      // The max pool size is the maximum number of connections that can be open to the database.
+      // The min pool size is the minimum number of connections that can be open to the database.
+      // The default min pool size is 1.
+      // The max pool size is the maximum number of connections that can be open to the database.
+      // The min pool size is the minimum number of connections that can be open to the database.
+      // The default min pool size is 1.
       // Connection pool - more connections for production
-      maxPoolSize: isProduction ? 50 : 10,
-      minPoolSize: isProduction ? 5 : 1,
+      maxPoolSize: isProduction ? 50 : 10, // 50 connections for production, 10 connections for development
+      // 50 connection for production, means it can handle 50 concurrent users am I right? but if i have 50 users, it will use 50 connections? no, it will use the number of users connected to the database. so if i have 50 users, it will use 50 connections.
+
+      minPoolSize: isProduction ? 5 : 1, // 5 connections for production, 1 connection for development
       // Timeouts
       serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,

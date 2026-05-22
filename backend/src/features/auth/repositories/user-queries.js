@@ -3,8 +3,8 @@
  * Run these queries to insert/update/delete data in MongoDB
  */
 
-const User = require("../models/User");
-const OTP = require("../models/OTP");
+const User = require("./user-model");
+const OTP = require("./otp-model");
 const bcrypt = require("bcryptjs");
 const { v4: uuidv4 } = require("uuid");
 

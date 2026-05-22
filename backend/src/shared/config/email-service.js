@@ -2,6 +2,9 @@ const nodemailer = require("nodemailer");
 
 class EmailService {
   constructor() {
+    // what is transporter? Transporter is a class that helps you send emails.
+    // what is isTestAccount? isTestAccount is a boolean that tells you if you are using a test account.
+    // what is setupTransporter? setupTransporter is a function that sets up the transporter.
     this.transporter = null;
     this.isTestAccount = false;
     this.setupTransporter();

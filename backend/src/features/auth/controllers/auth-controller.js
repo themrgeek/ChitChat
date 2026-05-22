@@ -1,4 +1,15 @@
-const emailService = require("../config/emailService");
+/*
+What is pool in email here? A pool is a collection of email accounts that are used to send emails.
+What is POOL_SIZE? POOL_SIZE is the size of the pool.
+What is poolRefilling? poolRefilling is a boolean that tells you if the pool is refilling.
+What is refillEtherealPool? refillEtherealPool is a function that refills the pool.
+What is users? users is a map that stores the users.
+What is otpStore? otpStore is a map that stores the OTPs.
+What is etherealAccountPool? etherealAccountPool is a array that stores the ethereal accounts.
+What is POOL_SIZE? POOL_SIZE is the size of the pool.
+*/
+
+const emailService = require("../../../shared/config/email-service");
 const crypto = require("crypto");
 
 // Simple in-memory storage for demo
